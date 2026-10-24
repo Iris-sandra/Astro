@@ -100,6 +100,37 @@ h2 { font-size: 13px; font-weight: 600; color: var(--muted); margin: 18px 2px 0;
 #cusps li { display: flex; gap: 8px; padding: 5px 0; border-bottom: 1px solid var(--line); font-size: 13.5px; }
 #cusps .k { color: var(--muted); width: 1.6em; }
 #cusps .v { margin-left: auto; font-variant-numeric: tabular-nums; }
+/* аспекты */
+.asp.minor { stroke: var(--muted); stroke-dasharray: 3 3; stroke-width: .8; }
+.asp-ctl { margin-top: 8px; padding-top: 4px; padding-bottom: 12px; }
+.ai { fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+.t-conj { color: var(--fg); } .t-sext { color: var(--water); } .t-sq { color: var(--fire); }
+.t-tri { color: var(--earth); } .t-opp { color: #ff5d8f; }
+.t-semi, .t-semisq, .t-sesq, .t-quinc { color: var(--muted); }
+.agrid { width: 100%; border-collapse: collapse; table-layout: fixed; margin-top: 12px; }
+.agrid th { font-weight: 400; color: var(--muted); font-size: 15px; padding: 2px 0; text-align: center; }
+.agrid th:first-child { width: 28px; }
+.agrid .tx { font-size: 9.5px; font-weight: 600; font-family: system-ui, sans-serif; }
+.agrid td { border: 1px solid var(--line); height: 38px; padding: 0; text-align: center; vertical-align: middle; line-height: 1; }
+.agrid td.blank { border: 0; }
+.agrid td .ai { width: 14px; height: 14px; display: block; margin: 0 auto 2px; }
+.agrid td i { font-style: normal; font-size: 8.5px; color: var(--muted); display: block; }
+#alist { margin: 12px 2px 0; padding: 0; list-style: none; }
+#alist li { display: flex; align-items: center; gap: 6px; padding: 7px 0; border-bottom: 1px solid var(--line); font-size: 14px; white-space: nowrap; }
+#alist .pg { min-width: 1.3em; text-align: center; font-size: 17px; }
+#alist .pg.tx { font-size: 11px; font-weight: 600; font-family: system-ui, sans-serif; color: var(--muted); }
+#alist .ai { width: 17px; height: 17px; flex: none; }
+#alist .n { color: var(--muted); font-size: 13px; overflow: hidden; text-overflow: ellipsis; }
+#alist .v { margin-left: auto; font-variant-numeric: tabular-nums; }
+.ap { font-size: 11px; border-radius: 9px; padding: 1px 7px; border: 1px solid var(--line); color: var(--muted); }
+.ap.in { color: var(--earth); border-color: var(--earth); }
+.btn.more { display: block; margin: 12px auto 0; }
+#patterns { margin: 4px 2px 0; padding: 0; list-style: none; }
+#patterns li { padding: 9px 0; border-bottom: 1px solid var(--line); }
+#patterns .ttl { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; font-weight: 600; font-size: 14.5px; }
+#patterns .mem { font-weight: 400; font-size: 17px; letter-spacing: .15em; white-space: nowrap; }
+#patterns .hint { color: var(--muted); font-size: 12.5px; margin-top: 2px; }
+#patterns .none { color: var(--muted); font-size: 13.5px; }
 .note { color: var(--muted); font-size: 11.5px; margin-top: 14px; text-align: center; }
 </style>
 </head>
@@ -144,6 +175,25 @@ h2 { font-size: 13px; font-weight: 600; color: var(--muted); margin: 18px 2px 0;
 
   <h2 id="cuspsTitle" hidden>Дома</h2>
   <ul id="cusps" hidden></ul>
+
+  <h2>Аспекты</h2>
+  <section class="place asp-ctl">
+    <div class="seg" id="aspMinor">
+      <button type="button" data-v="0" aria-pressed="true">Основные</button>
+      <button type="button" data-v="1" aria-pressed="false">+ минорные</button>
+    </div>
+    <div class="seg" id="aspOrb">
+      <button type="button" data-v="0.6" aria-pressed="false">Узкий орбис</button>
+      <button type="button" data-v="1" aria-pressed="true">Стандарт</button>
+      <button type="button" data-v="1.3" aria-pressed="false">Широкий</button>
+    </div>
+  </section>
+  <div id="grid"></div>
+  <ul id="alist"></ul>
+  <button class="btn more" id="aMore" type="button" hidden></button>
+
+  <h2>Конфигурации</h2>
+  <ul id="patterns"></ul>
 
   <p class="note">Положения геоцентрические, тропический зодиак.</p>
 
@@ -336,25 +386,115 @@ h2 { font-size: 13px; font-weight: 600; color: var(--muted); margin: 18px 2px 0;
 
   const ASPECTS = [
     { id: 'conj', name: 'Соединение', angle: 0, orb: 8 },
-    { id: 'sext', name: 'Секстиль', angle: 60, orb: 4 },
-    { id: 'sq', name: 'Квадратура', angle: 90, orb: 6 },
-    { id: 'tri', name: 'Трин', angle: 120, orb: 6 },
+    { id: 'sext', name: 'Секстиль', angle: 60, orb: 5 },
+    { id: 'sq', name: 'Квадратура', angle: 90, orb: 7 },
+    { id: 'tri', name: 'Трин', angle: 120, orb: 7 },
     { id: 'opp', name: 'Оппозиция', angle: 180, orb: 8 },
+    { id: 'semi', name: 'Полусекстиль', angle: 30, orb: 2, minor: true },
+    { id: 'semisq', name: 'Полуквадрат', angle: 45, orb: 2.5, minor: true },
+    { id: 'sesq', name: 'Полутораквадрат', angle: 135, orb: 2.5, minor: true },
+    { id: 'quinc', name: 'Квинконс', angle: 150, orb: 3, minor: true },
   ];
 
-  function aspects(bodies) {
-    const list = bodies.filter((b) => b.id !== 'node');
+  // угловое расстояние 0..180
+  const sepAngle = (x, y) => {
+    const d = Math.abs(norm(x) - norm(y));
+    return d > 180 ? 360 - d : d;
+  };
+
+  // opts: { minor: bool, scale: множитель орбиса, points: доп. точки [{id, name, glyph, lon, angle: true}] }
+  // applying: true — сближается, false — расходится, null — не определяется (углы карты)
+  function aspects(bodies, opts) {
+    const o = opts || {};
+    const scale = o.scale || 1;
+    const list = bodies.filter((b) => b.id !== 'node').concat(o.points || []);
     const out = [];
     for (let i = 0; i < list.length; i++) {
       for (let j = i + 1; j < list.length; j++) {
-        let diff = Math.abs(list[i].lon - list[j].lon);
-        if (diff > 180) diff = 360 - diff;
-        for (const a of ASPECTS) {
-          const orb = Math.abs(diff - a.angle);
-          if (orb <= a.orb) { out.push({ a: list[i], b: list[j], type: a, orb }); break; }
+        const A = list[i], B = list[j];
+        if (A.angle && B.angle) continue;
+        const diff = sepAngle(A.lon, B.lon);
+        for (const t of ASPECTS) {
+          if (t.minor && !o.minor) continue;
+          const limit = t.orb * scale;
+          const orb = Math.abs(diff - t.angle);
+          if (orb <= limit) {
+            let applying = null;
+            if (!A.angle && !B.angle) {
+              const next = sepAngle(A.lon + A.speed * 0.05, B.lon + B.speed * 0.05);
+              applying = Math.abs(next - t.angle) < orb;
+            }
+            out.push({ a: A, b: B, type: t, orb, limit, applying });
+            break;
+          }
         }
       }
     }
+    return out;
+  }
+
+  // Конфигурации (собственные, более жёсткие орбисы, не зависят от переключателей)
+  function patterns(bodies) {
+    const P = bodies.filter((b) => b.id !== 'node');
+    const n = P.length;
+    const ANG = { sext: 60, sq: 90, tri: 120, opp: 180, quinc: 150 };
+    const LIM = { sext: 5, sq: 6, tri: 6, opp: 7, quinc: 3 };
+    const has = (i, j, t) => Math.abs(sepAngle(P[i].lon, P[j].lon) - ANG[t]) <= LIM[t];
+    const out = [], seen = new Set();
+    const add = (id, idx, extra) => {
+      const key = id + ':' + idx.slice().sort((x, y) => x - y).join(',');
+      if (seen.has(key)) return;
+      seen.add(key);
+      out.push(Object.assign({ id, idx: idx.slice(), planets: idx.map((i) => P[i]) }, extra || {}));
+    };
+
+    // Большой крест
+    for (let i = 0; i < n; i++) for (let j = i + 1; j < n; j++) {
+      if (!has(i, j, 'opp')) continue;
+      for (let k = i + 1; k < n; k++) for (let l = k + 1; l < n; l++) {
+        if (k === j || l === j || !has(k, l, 'opp')) continue;
+        if (has(i, k, 'sq') && has(i, l, 'sq') && has(j, k, 'sq') && has(j, l, 'sq')) add('grandcross', [i, j, k, l]);
+      }
+    }
+    // Большой трин
+    for (let i = 0; i < n; i++) for (let j = i + 1; j < n; j++) for (let k = j + 1; k < n; k++) {
+      if (has(i, j, 'tri') && has(j, k, 'tri') && has(i, k, 'tri')) {
+        const els = [P[i], P[j], P[k]].map((p) => SIGNS[Math.floor(p.lon / 30)].el);
+        add('grandtrine', [i, j, k], { element: els[0] === els[1] && els[1] === els[2] ? els[0] : null });
+      }
+    }
+    // Т-квадрат и Йод
+    for (let i = 0; i < n; i++) for (let j = i + 1; j < n; j++) {
+      const opp = has(i, j, 'opp'), sx = has(i, j, 'sext');
+      if (!opp && !sx) continue;
+      for (let k = 0; k < n; k++) {
+        if (k === i || k === j) continue;
+        if (opp && has(i, k, 'sq') && has(j, k, 'sq')) add('tsquare', [i, j, k], { apex: P[k] });
+        if (sx && has(i, k, 'quinc') && has(j, k, 'quinc')) add('yod', [i, j, k], { apex: P[k] });
+      }
+    }
+    // Т-квадраты внутри Большого креста не показываем
+    const crosses = out.filter((p) => p.id === 'grandcross').map((p) => new Set(p.idx));
+    for (let q = out.length - 1; q >= 0; q--) {
+      if (out[q].id === 'tsquare' && crosses.some((c) => out[q].idx.every((i) => c.has(i)))) out.splice(q, 1);
+    }
+    // Стеллиум: 3+ планеты в пределах 10°
+    const sorted = P.map((p, i) => ({ i, lon: p.lon })).sort((x, y) => x.lon - y.lon);
+    const ext = sorted.concat(sorted.map((s) => ({ i: s.i, lon: s.lon + 360 })));
+    const groups = [];
+    for (let s = 0; s < n; s++) {
+      let e = s;
+      while (e + 1 < ext.length && ext[e + 1].lon - ext[s].lon <= 10 && e + 1 - s < n) e++;
+      if (e - s + 1 >= 3) groups.push(ext.slice(s, e + 1).map((x) => x.i));
+    }
+    const maximal = groups.filter((g, a) => !groups.some((h, b) => b !== a && h.length > g.length && g.every((x) => h.includes(x))));
+    maximal.forEach((g) => {
+      const signs = new Set(g.map((i) => Math.floor(P[i].lon / 30)));
+      add('stellium', g, { sign: signs.size === 1 ? SIGNS[[...signs][0]] : null });
+    });
+
+    const order = { grandcross: 0, grandtrine: 1, tsquare: 2, yod: 3, stellium: 4 };
+    out.sort((x, y) => order[x.id] - order[y.id]);
     return out;
   }
 
@@ -445,7 +585,7 @@ h2 { font-size: 13px; font-weight: 600; color: var(--muted); margin: 18px 2px 0;
     return 12;
   }
 
-  return { positions, aspects, moonPhase, houses, houseOf, describe, SIGNS, BODIES, ASPECTS, fmtDeg, dayNumber };
+  return { positions, aspects, patterns, moonPhase, houses, houseOf, describe, SIGNS, BODIES, ASPECTS, fmtDeg, dayNumber };
 });
 </script>
   <script>
@@ -545,9 +685,10 @@ h2 { font-size: 13px; font-weight: 600; color: var(--muted); margin: 18px 2px 0;
 
     // аспекты
     aspects.forEach((a) => {
+      if (a.a.angle || a.b.angle) return; // линии к ASC/MC на колесе не рисуем
       const [x1, y1] = pt(a.a.lon, R_ASPECT), [x2, y2] = pt(a.b.lon, R_ASPECT);
-      const tight = 1 - Math.min(a.orb / a.type.orb, 1) * 0.6;
-      out.push(`<line class="asp asp-${a.type.id}" style="opacity:${tight.toFixed(2)}" x1="${f(x1)}" y1="${f(y1)}" x2="${f(x2)}" y2="${f(y2)}"/>`);
+      const tight = 1 - Math.min(a.orb / (a.limit || a.type.orb), 1) * 0.6;
+      out.push(`<line class="asp asp-${a.type.id}${a.type.minor ? ' minor' : ''}" style="opacity:${tight.toFixed(2)}" x1="${f(x1)}" y1="${f(y1)}" x2="${f(x2)}" y2="${f(y2)}"/>`);
     });
 
     // номера домов — в центре дома, внутри круга аспектов
@@ -612,7 +753,25 @@ h2 { font-size: 13px; font-weight: 600; color: var(--muted); margin: 18px 2px 0;
   // --- Состояние --------------------------------------------------------
   const DAY = 86400000;
   const $ = (id) => document.getElementById(id);
-  const state = { spanDays: 366, live: true, when: new Date(), loc: null, system: 'placidus' };
+  const state = { spanDays: 366, live: true, when: new Date(), loc: null, system: 'placidus', minor: false, orbScale: 1, aspAll: false };
+  const savedMinor = store.get('astro.minor');
+  if (savedMinor === true || savedMinor === false) state.minor = savedMinor;
+  const savedOrb = store.get('astro.orb');
+  if ([0.6, 1, 1.3].includes(savedOrb)) state.orbScale = savedOrb;
+
+  // значки аспектов (рисуем сами, чтобы не зависеть от шрифтов телефона)
+  const ICON = {
+    conj: '<circle cx="6" cy="10" r="3"/><path d="M8.4 7.6L13 3"/>',
+    sext: '<path d="M8 2.5v11M3.2 5.2l9.6 5.6M12.8 5.2l-9.6 5.6"/>',
+    sq: '<rect x="3" y="3" width="10" height="10"/>',
+    tri: '<path d="M8 2.5L14 13H2z"/>',
+    opp: '<circle cx="4.5" cy="11.5" r="2.5"/><circle cx="11.5" cy="4.5" r="2.5"/><path d="M6.3 9.7L9.7 6.3"/>',
+    semi: '<path d="M3 3L8 13L13 3"/>',
+    semisq: '<path d="M3 13.5H13M3 13.5L11 5.5"/>',
+    sesq: '<rect x="3" y="6" width="8" height="8"/><path d="M11 6L14 3"/>',
+    quinc: '<path d="M8 13.5V8M8 8L3 2.5M8 8L13 2.5"/>',
+  };
+  const icon = (id) => `<svg class="ai t-${id}" viewBox="0 0 16 16" aria-hidden="true">${ICON[id]}</svg>`;
 
   const savedLoc = store.get('astro.loc');
   if (savedLoc && Math.abs(savedLoc.lat) <= 90 && Math.abs(savedLoc.lon) <= 180) state.loc = savedLoc;
@@ -641,10 +800,13 @@ h2 { font-size: 13px; font-weight: 600; color: var(--muted); margin: 18px 2px 0;
   // --- Отрисовка --------------------------------------------------------
   function render() {
     const bodies = Ephemeris.positions(state.when);
-    const asp = Ephemeris.aspects(bodies);
     const L = state.loc;
     const H = L ? Ephemeris.houses(state.when, L.lat, L.lon, state.system) : null;
     if (H) bodies.forEach((b) => { b.house = Ephemeris.houseOf(b.lon, H.cusps); });
+    const points = H
+      ? [{ id: 'asc', name: 'Асцендент', glyph: 'AC', lon: H.asc, angle: true }, { id: 'mc', name: 'MC', glyph: 'MC', lon: H.mc, angle: true }]
+      : [];
+    const asp = Ephemeris.aspects(bodies, { minor: state.minor, scale: state.orbScale, points });
 
     $('wheel').innerHTML = Wheel.build(bodies, asp, H);
     $('when').textContent = fmtWhen.format(state.when);
@@ -669,7 +831,104 @@ h2 { font-size: 13px; font-weight: 600; color: var(--muted); margin: 18px 2px 0;
     $('cusps').innerHTML = showCusps
       ? H.cusps.map((c, i) => `<li><span class="k">${i + 1}</span><span class="v">${fmtLon(c)}</span></li>`).join('')
       : '';
+
+    renderAspects(bodies, asp, points);
   }
+
+  // --- Аспекты ----------------------------------------------------------
+  const lab = (p) => (p.angle ? p.glyph : p.glyph + '︎');
+  const cls = (p) => (p.angle ? ' tx' : '');
+  const fmtOrb = (o) => {
+    const d = Math.floor(o), m = Math.round((o - d) * 60);
+    return m === 60 ? `${d + 1}°00′` : `${d}°${pad(m)}′`;
+  };
+  const ELEM = { fire: 'огонь', earth: 'земля', air: 'воздух', water: 'вода' };
+  const LIST_LIMIT = 12;
+
+  function renderGrid(points, asp) {
+    const map = new Map();
+    asp.forEach((a) => map.set(a.a.id + '|' + a.b.id, a));
+    const n = points.length;
+    let html = '<table class="agrid"><tr><th></th>' +
+      points.slice(0, n - 1).map((p) => `<th class="${cls(p).trim()}">${lab(p)}</th>`).join('') + '</tr>';
+    for (let i = 1; i < n; i++) {
+      html += `<tr><th class="${cls(points[i]).trim()}">${lab(points[i])}</th>`;
+      for (let j = 0; j < n - 1; j++) {
+        if (j >= i) { html += '<td class="blank"></td>'; continue; }
+        const a = map.get(points[j].id + '|' + points[i].id);
+        html += a
+          ? `<td title="${a.type.name} ${fmtOrb(a.orb)}">${icon(a.type.id)}<i>${a.orb.toFixed(1)}°</i></td>`
+          : '<td></td>';
+      }
+      html += '</tr>';
+    }
+    $('grid').innerHTML = html + '</table>';
+  }
+
+  function renderAspectList(asp) {
+    const sorted = asp.slice().sort((x, y) => x.orb - y.orb);
+    const shown = state.aspAll ? sorted : sorted.slice(0, LIST_LIMIT);
+    $('alist').innerHTML = shown.length
+      ? shown.map((a) =>
+        `<li><span class="pg${cls(a.a)}">${lab(a.a)}</span>${icon(a.type.id)}<span class="pg${cls(a.b)}">${lab(a.b)}</span>` +
+        `<span class="n">${a.type.name}</span><span class="v">${fmtOrb(a.orb)}</span>` +
+        (a.applying === null ? '' : `<span class="ap${a.applying ? ' in' : ''}">${a.applying ? 'сближается' : 'расходится'}</span>`) +
+        '</li>').join('')
+      : '<li><span class="n">В заданном орбисе аспектов нет</span></li>';
+    const more = $('aMore');
+    more.hidden = sorted.length <= LIST_LIMIT;
+    more.textContent = state.aspAll ? 'Свернуть' : `Показать все (${sorted.length})`;
+  }
+
+  function renderPatterns(bodies) {
+    const list = Ephemeris.patterns(bodies);
+    const apex = (p) => `${p.apex.glyph}︎ ${p.apex.name}`;
+    const TEXT = {
+      grandcross: () => ['Большой крест', 'Две оппозиции, образующие квадраты друг с другом'],
+      grandtrine: (p) => ['Большой трин' + (p.element ? ` (${ELEM[p.element]})` : ''), 'Три планеты в трине друг к другу'],
+      tsquare: (p) => ['Т-квадрат', `Оппозиция и вершина в квадратуре к обеим: ${apex(p)}`],
+      yod: (p) => ['Йод', `Секстиль и вершина в квинконсе к обеим: ${apex(p)}`],
+      stellium: (p) => ['Стеллиум', p.sign ? `Планет в знаке ${p.sign.name}: ${p.planets.length}` : `Планет в пределах 10°: ${p.planets.length}`],
+    };
+    $('patterns').innerHTML = list.length
+      ? list.map((p) => {
+        const [title, hint] = TEXT[p.id](p);
+        return `<li><div class="ttl"><span>${title}</span><span class="mem">${p.planets.map((x) => x.glyph + '︎').join(' ')}</span></div><div class="hint">${hint}</div></li>`;
+      }).join('')
+      : '<li class="none">Крупных конфигураций сейчас нет</li>';
+  }
+
+  function renderAspects(bodies, asp, points) {
+    const pts = bodies.filter((b) => b.id !== 'node').concat(points);
+    renderGrid(pts, asp);
+    renderAspectList(asp);
+    renderPatterns(bodies);
+  }
+
+  function syncAsp() {
+    document.querySelectorAll('#aspMinor button').forEach((b) => b.setAttribute('aria-pressed', String(Number(b.dataset.v) === (state.minor ? 1 : 0))));
+    document.querySelectorAll('#aspOrb button').forEach((b) => b.setAttribute('aria-pressed', String(Number(b.dataset.v) === state.orbScale)));
+  }
+
+  $('aspMinor').addEventListener('click', (e) => {
+    const btn = e.target.closest('button');
+    if (!btn) return;
+    state.minor = btn.dataset.v === '1';
+    store.set('astro.minor', state.minor);
+    syncAsp();
+    render();
+  });
+
+  $('aspOrb').addEventListener('click', (e) => {
+    const btn = e.target.closest('button');
+    if (!btn) return;
+    state.orbScale = Number(btn.dataset.v);
+    store.set('astro.orb', state.orbScale);
+    syncAsp();
+    render();
+  });
+
+  $('aMore').addEventListener('click', () => { state.aspAll = !state.aspAll; render(); });
 
   // --- Время ------------------------------------------------------------
   function setFromSlider() {
@@ -789,6 +1048,7 @@ h2 { font-size: 13px; font-weight: 600; color: var(--muted); margin: 18px 2px 0;
 
   $('placeName').textContent = state.loc ? state.loc.name : 'место не выбрано';
   syncSys();
+  syncAsp();
   render();
 })();
 </script>
