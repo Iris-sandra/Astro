@@ -1,0 +1,514 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+  <title>Астро</title>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <style>
+:root {
+  --bg: var(--tg-theme-bg-color, #14161d);
+  --fg: var(--tg-theme-text-color, #eceef4);
+  --muted: var(--tg-theme-hint-color, #8b90a0);
+  --card: var(--tg-theme-secondary-bg-color, #1c1f29);
+  --accent: var(--tg-theme-button-color, #7c8cff);
+  --accent-fg: var(--tg-theme-button-text-color, #ffffff);
+  --line: rgba(140,145,165,.35);
+  --line: color-mix(in srgb, var(--fg) 22%, transparent);
+  --fire: #ff7a59; --earth: #6fbf73; --air: #e8c547; --water: #5aa9ff;
+}
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html, body { margin: 0; background: var(--bg); color: var(--fg);
+  font: 15px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+body { padding: 12px 14px 28px; max-width: 520px; margin: 0 auto; }
+
+header { text-align: center; margin-bottom: 4px; }
+#when { font-size: 18px; font-weight: 600; }
+#moon { color: var(--muted); font-size: 13px; margin-top: 2px; }
+
+#wheel { width: 100%; aspect-ratio: 1; margin: 6px 0 2px; }
+#wheel svg { width: 100%; height: 100%; display: block; }
+#wheel text { font-family: "Noto Sans Symbols", "Noto Sans Symbols 2", "Segoe UI Symbol", "DejaVu Sans", system-ui, sans-serif; }
+
+.sector { stroke: none; }
+.el-fire { fill: rgba(255,122,89,.14); fill: color-mix(in srgb, var(--fire) 14%, transparent); }
+.el-earth { fill: rgba(111,191,115,.14); fill: color-mix(in srgb, var(--earth) 14%, transparent); }
+.el-air { fill: rgba(232,197,71,.14); fill: color-mix(in srgb, var(--air) 14%, transparent); }
+.el-water { fill: rgba(90,169,255,.14); fill: color-mix(in srgb, var(--water) 14%, transparent); }
+text.sign { font-size: 17px; }
+.el-fire-t { fill: var(--fire); } .el-earth-t { fill: var(--earth); }
+.el-air-t { fill: var(--air); }   .el-water-t { fill: var(--water); }
+.ring { fill: none; stroke: var(--line); stroke-width: 1; }
+.ring.faint { stroke-dasharray: 2 4; }
+.tick { stroke: var(--line); stroke-width: 1; }
+.pmark { stroke: var(--fg); stroke-width: 1.4; }
+.lead { stroke: var(--muted); stroke-width: .6; }
+text.planet { font-size: 19px; fill: var(--fg); }
+text.retro { font-size: 8px; fill: var(--muted); }
+.p-sun { fill: #ffc94d; } .p-moon { fill: #cfd6ea; }
+.asp { stroke-width: 1.2; }
+.asp-conj { stroke: var(--muted); }
+.asp-sext { stroke: var(--water); }
+.asp-tri { stroke: var(--earth); }
+.asp-sq { stroke: var(--fire); }
+.asp-opp { stroke: #ff5d8f; }
+
+.time { background: var(--card); border-radius: 14px; padding: 12px 14px 10px; margin-top: 4px; }
+.range { display: flex; gap: 6px; margin-bottom: 10px; }
+.range button { flex: 1; border: 0; border-radius: 9px; padding: 7px 0; font: inherit; font-size: 13px;
+  background: transparent; color: var(--muted); }
+.range button[aria-pressed="true"] { background: var(--accent); color: var(--accent-fg); }
+input[type=range] { width: 100%; margin: 4px 0 8px; accent-color: var(--accent); height: 28px; }
+.row { display: flex; justify-content: space-between; align-items: center; color: var(--muted); font-size: 12px; }
+#now { border: 1px solid var(--accent); color: var(--accent); background: transparent; border-radius: 9px;
+  padding: 6px 14px; font: inherit; font-size: 13px; }
+
+#list { display: grid; grid-template-columns: 1fr 1fr; gap: 2px 14px; margin: 14px 2px 0; padding: 0; list-style: none; }
+#list li { display: flex; align-items: baseline; gap: 6px; padding: 5px 0; border-bottom: 1px solid var(--line);
+  font-size: 13.5px; white-space: nowrap; }
+#list .g { width: 1.3em; text-align: center; font-size: 16px; }
+#list .n { color: var(--muted); }
+#list .v { margin-left: auto; font-variant-numeric: tabular-nums; }
+#list .rx { color: var(--muted); font-size: 11px; margin-left: 2px; }
+.note { color: var(--muted); font-size: 11.5px; margin-top: 14px; text-align: center; }
+</style>
+</head>
+<body>
+  <header>
+    <div id="when"></div>
+    <div id="moon"></div>
+  </header>
+
+  <div id="wheel"></div>
+
+  <section class="time">
+    <div class="range" id="range">
+      <button data-days="1" aria-pressed="false">±1 день</button>
+      <button data-days="31" aria-pressed="false">±1 мес</button>
+      <button data-days="366" aria-pressed="true">±1 год</button>
+      <button data-days="3652" aria-pressed="false">±10 лет</button>
+    </div>
+    <input id="slider" type="range" min="0" max="1000" value="500" step="1" aria-label="Время">
+    <div class="row"><span id="offset"></span><button id="now">Сейчас</button></div>
+  </section>
+
+  <ul id="list"></ul>
+  <p class="note">Положения геоцентрические, тропический зодиак. Дома и Асцендент появятся после выбора места.</p>
+
+  <script>
+/*
+ * Лёгкая эфемерида без зависимостей: Солнце, Луна, планеты, Плутон, средний узел.
+ * Основа — элементы орбит и поправки П. Шлайтера (Schlyter) + главные члены возмущений.
+ * Точность: порядка угловых минут (Луна — до ~10′)
+ * — для прототипа и ежедневной астрологии достаточно. Позже можно заменить на Swiss Ephemeris (WASM).
+ * Эклиптическая долгота — средний equinox даты (тропический зодиак).
+ */
+(function (root, factory) {
+  if (typeof module === 'object' && module.exports) module.exports = factory();
+  else root.Ephemeris = factory();
+})(typeof self !== 'undefined' ? self : this, function () {
+  'use strict';
+
+  const RAD = Math.PI / 180, DEG = 180 / Math.PI;
+  const sind = (x) => Math.sin(x * RAD);
+  const cosd = (x) => Math.cos(x * RAD);
+  const norm = (x) => ((x % 360) + 360) % 360;
+  // дни от 1999-12-31 00:00 UT (эпоха Шлайтера)
+  const dayNumber = (date) => date.getTime() / 86400000 + 2440587.5 - 2451543.5;
+
+  const EL = {
+    sun:     (d) => ({ N: 0, i: 0, w: 282.9404 + 4.70935e-5 * d, a: 1, e: 0.016709 - 1.151e-9 * d, M: 356.0470 + 0.9856002585 * d }),
+    moon:    (d) => ({ N: 125.1228 - 0.0529538083 * d, i: 5.1454, w: 318.0634 + 0.1643573223 * d, a: 60.2666, e: 0.0549, M: 115.3654 + 13.0649929509 * d }),
+    mercury: (d) => ({ N: 48.3313 + 3.24587e-5 * d, i: 7.0047 + 5.0e-8 * d, w: 29.1241 + 1.01444e-5 * d, a: 0.387098, e: 0.205635 + 5.59e-10 * d, M: 168.6562 + 4.0923344368 * d }),
+    venus:   (d) => ({ N: 76.6799 + 2.4659e-5 * d, i: 3.3946 + 2.75e-8 * d, w: 54.8910 + 1.38374e-5 * d, a: 0.72333, e: 0.006773 - 1.302e-9 * d, M: 48.0052 + 1.6021302244 * d }),
+    mars:    (d) => ({ N: 49.5574 + 2.11081e-5 * d, i: 1.8497 - 1.78e-8 * d, w: 286.5016 + 2.92961e-5 * d, a: 1.523688, e: 0.093405 + 2.516e-9 * d, M: 18.6021 + 0.5240207766 * d }),
+    jupiter: (d) => ({ N: 100.4542 + 2.76854e-5 * d, i: 1.303 - 1.557e-7 * d, w: 273.8777 + 1.64505e-5 * d, a: 5.20256, e: 0.048498 + 4.469e-9 * d, M: 19.895 + 0.0830853001 * d }),
+    saturn:  (d) => ({ N: 113.6634 + 2.3898e-5 * d, i: 2.4886 - 1.081e-7 * d, w: 339.3939 + 2.97661e-5 * d, a: 9.55475, e: 0.055546 - 9.499e-9 * d, M: 316.967 + 0.0334442282 * d }),
+    uranus:  (d) => ({ N: 74.0005 + 1.3978e-5 * d, i: 0.7733 + 1.9e-8 * d, w: 96.6612 + 3.0565e-5 * d, a: 19.18171 - 1.55e-8 * d, e: 0.047318 + 7.45e-9 * d, M: 142.5905 + 0.011725806 * d }),
+    neptune: (d) => ({ N: 131.7806 + 3.0173e-5 * d, i: 1.77 - 2.55e-7 * d, w: 272.8461 - 6.027e-6 * d, a: 30.05826 + 3.313e-8 * d, e: 0.008606 + 2.15e-9 * d, M: 260.2471 + 0.005995147 * d }),
+  };
+
+  function kepler(Mdeg, e) {
+    const M = norm(Mdeg) * RAD;
+    let E = M + e * Math.sin(M) * (1 + e * Math.cos(M));
+    for (let k = 0; k < 12; k++) {
+      const dE = (E - e * Math.sin(E) - M) / (1 - e * Math.cos(E));
+      E -= dE;
+      if (Math.abs(dE) < 1e-12) break;
+    }
+    return E;
+  }
+
+  // положение по орбите → эклиптические x, y, z, r, lon, lat
+  function orbit(el) {
+    const E = kepler(el.M, el.e);
+    const xv = el.a * (Math.cos(E) - el.e);
+    const yv = el.a * Math.sqrt(1 - el.e * el.e) * Math.sin(E);
+    const v = Math.atan2(yv, xv) * DEG;
+    const r = Math.hypot(xv, yv);
+    const vw = v + el.w;
+    const x = r * (cosd(el.N) * cosd(vw) - sind(el.N) * sind(vw) * cosd(el.i));
+    const y = r * (sind(el.N) * cosd(vw) + cosd(el.N) * sind(vw) * cosd(el.i));
+    const z = r * (sind(vw) * sind(el.i));
+    return fromXYZ(x, y, z);
+  }
+
+  function fromXYZ(x, y, z) {
+    const r = Math.sqrt(x * x + y * y + z * z);
+    return { x, y, z, r, lon: norm(Math.atan2(y, x) * DEG), lat: Math.asin(z / r) * DEG };
+  }
+  function fromPolar(lon, lat, r) {
+    return fromXYZ(r * cosd(lat) * cosd(lon), r * cosd(lat) * sind(lon), r * sind(lat));
+  }
+
+  function sunPos(d) {
+    const el = EL.sun(d);
+    const E = kepler(el.M, el.e);
+    const xv = Math.cos(E) - el.e;
+    const yv = Math.sqrt(1 - el.e * el.e) * Math.sin(E);
+    const lon = norm(Math.atan2(yv, xv) * DEG + el.w);
+    const r = Math.hypot(xv, yv);
+    return { lon, r, x: r * cosd(lon), y: r * sind(lon), M: el.M, w: el.w };
+  }
+
+  function moonPos(d, sun) {
+    const el = EL.moon(d);
+    let p = orbit(el);
+    const Mm = el.M, Ms = sun.M;
+    const Lm = el.N + el.w + el.M, Ls = sun.w + sun.M;
+    const D = Lm - Ls, F = Lm - el.N;
+    const dlon =
+      -1.274 * sind(Mm - 2 * D) + 0.658 * sind(2 * D) - 0.186 * sind(Ms) - 0.059 * sind(2 * Mm - 2 * D) -
+      0.057 * sind(Mm - 2 * D + Ms) + 0.053 * sind(Mm + 2 * D) + 0.046 * sind(2 * D - Ms) + 0.041 * sind(Mm - Ms) -
+      0.035 * sind(D) - 0.031 * sind(Mm + Ms) - 0.015 * sind(2 * F - 2 * D) + 0.011 * sind(Mm - 4 * D);
+    const dlat =
+      -0.173 * sind(F - 2 * D) - 0.055 * sind(Mm - F - 2 * D) - 0.046 * sind(Mm + F - 2 * D) +
+      0.033 * sind(F + 2 * D) + 0.017 * sind(2 * Mm + F);
+    return { lon: norm(p.lon + dlon), lat: p.lat + dlat };
+  }
+
+  function plutoHelio(d) {
+    const S = 50.03 + 0.033459652 * d, P = 238.95 + 0.003968789 * d;
+    let lon = 238.9508 + 0.00400703 * d
+      - 19.799 * sind(P) + 19.848 * cosd(P) + 0.897 * sind(2 * P) - 4.956 * cosd(2 * P)
+      + 0.61 * sind(3 * P) + 1.211 * cosd(3 * P) - 0.341 * sind(4 * P) - 0.19 * cosd(4 * P)
+      + 0.128 * sind(5 * P) - 0.034 * cosd(5 * P) - 0.038 * sind(6 * P) + 0.031 * cosd(6 * P)
+      + 0.02 * sind(S - P) - 0.01 * cosd(S - P);
+    const lat = -3.9082 - 5.453 * sind(P) - 14.975 * cosd(P) + 3.527 * sind(2 * P) + 1.673 * cosd(2 * P)
+      - 1.051 * sind(3 * P) + 0.328 * cosd(3 * P) + 0.179 * sind(4 * P) - 0.292 * cosd(4 * P)
+      + 0.019 * sind(5 * P) + 0.1 * cosd(5 * P) - 0.031 * sind(6 * P) - 0.026 * cosd(6 * P) + 0.011 * cosd(S - P);
+    const r = 40.72 + 6.68 * sind(P) + 6.9 * cosd(P) - 1.18 * sind(2 * P) - 0.03 * cosd(2 * P)
+      + 0.15 * sind(3 * P) - 0.14 * cosd(3 * P);
+    lon += 3.82394e-5 * (d - 1.5); // прецессия J2000 → equinox даты
+    return fromPolar(lon, lat, r);
+  }
+
+  function planetGeo(id, d, sun) {
+    let h;
+    if (id === 'pluto') {
+      h = plutoHelio(d);
+    } else {
+      h = orbit(EL[id](d));
+      let plon = 0, plat = 0;
+      if (id === 'jupiter' || id === 'saturn' || id === 'uranus') {
+        const Mj = EL.jupiter(d).M, Msa = EL.saturn(d).M, Mu = EL.uranus(d).M;
+        if (id === 'jupiter') {
+          plon = -0.332 * sind(2 * Mj - 5 * Msa - 67.6) - 0.056 * sind(2 * Mj - 2 * Msa + 21)
+            + 0.042 * sind(3 * Mj - 5 * Msa + 21) - 0.036 * sind(Mj - 2 * Msa) + 0.022 * cosd(Mj - Msa)
+            + 0.023 * sind(2 * Mj - 3 * Msa + 52) - 0.016 * sind(Mj - 5 * Msa - 69);
+        } else if (id === 'saturn') {
+          plon = 0.812 * sind(2 * Mj - 5 * Msa - 67.6) - 0.229 * cosd(2 * Mj - 4 * Msa - 2)
+            + 0.119 * sind(Mj - 2 * Msa - 3) + 0.046 * sind(2 * Mj - 6 * Msa - 69) + 0.014 * sind(Mj - 3 * Msa + 32);
+          plat = -0.02 * cosd(2 * Mj - 4 * Msa - 2) + 0.018 * sind(2 * Mj - 6 * Msa - 49);
+        } else {
+          plon = 0.04 * sind(Msa - 2 * Mu + 6) + 0.035 * sind(Msa - 3 * Mu + 33) - 0.015 * sind(Mj - Mu + 20);
+        }
+        h = fromPolar(h.lon + plon, h.lat + plat, h.r);
+      }
+    }
+    // гелиоцентрическое → геоцентрическое (Земля = −Солнце)
+    const g = fromXYZ(h.x + sun.x, h.y + sun.y, h.z);
+    return { lon: g.lon, lat: g.lat };
+  }
+
+  const BODIES = [
+    { id: 'sun', name: 'Солнце', glyph: '☉' },
+    { id: 'moon', name: 'Луна', glyph: '☽' },
+    { id: 'mercury', name: 'Меркурий', glyph: '☿' },
+    { id: 'venus', name: 'Венера', glyph: '♀' },
+    { id: 'mars', name: 'Марс', glyph: '♂' },
+    { id: 'jupiter', name: 'Юпитер', glyph: '♃' },
+    { id: 'saturn', name: 'Сатурн', glyph: '♄' },
+    { id: 'uranus', name: 'Уран', glyph: '♅' },
+    { id: 'neptune', name: 'Нептун', glyph: '♆' },
+    { id: 'pluto', name: 'Плутон', glyph: '♇' },
+    { id: 'node', name: 'Сев. узел', glyph: '☊' },
+  ];
+
+  function lonLat(id, d) {
+    const sun = sunPos(d);
+    if (id === 'sun') return { lon: sun.lon, lat: 0 };
+    if (id === 'moon') return moonPos(d, sun);
+    if (id === 'node') return { lon: norm(EL.moon(d).N), lat: 0 };
+    return planetGeo(id, d, sun);
+  }
+
+  const SIGNS = [
+    { name: 'Овен', glyph: '♈', el: 'fire' }, { name: 'Телец', glyph: '♉', el: 'earth' },
+    { name: 'Близнецы', glyph: '♊', el: 'air' }, { name: 'Рак', glyph: '♋', el: 'water' },
+    { name: 'Лев', glyph: '♌', el: 'fire' }, { name: 'Дева', glyph: '♍', el: 'earth' },
+    { name: 'Весы', glyph: '♎', el: 'air' }, { name: 'Скорпион', glyph: '♏', el: 'water' },
+    { name: 'Стрелец', glyph: '♐', el: 'fire' }, { name: 'Козерог', glyph: '♑', el: 'earth' },
+    { name: 'Водолей', glyph: '♒', el: 'air' }, { name: 'Рыбы', glyph: '♓', el: 'water' },
+  ];
+
+  function positions(date) {
+    const d = dayNumber(date);
+    return BODIES.map((b) => {
+      const p = lonLat(b.id, d);
+      let speed = 0, retro = false;
+      if (b.id === 'node') { speed = -0.053; retro = true; }
+      else {
+        const a = lonLat(b.id, d - 0.5).lon, c = lonLat(b.id, d + 0.5).lon;
+        speed = ((c - a + 540) % 360) - 180;
+        retro = speed < 0;
+      }
+      const signIndex = Math.floor(p.lon / 30);
+      const inSign = p.lon - signIndex * 30;
+      return {
+        ...b, lon: p.lon, lat: p.lat, speed, retro, signIndex,
+        sign: SIGNS[signIndex], deg: Math.floor(inSign), min: Math.floor((inSign % 1) * 60),
+      };
+    });
+  }
+
+  const ASPECTS = [
+    { id: 'conj', name: 'Соединение', angle: 0, orb: 8 },
+    { id: 'sext', name: 'Секстиль', angle: 60, orb: 4 },
+    { id: 'sq', name: 'Квадратура', angle: 90, orb: 6 },
+    { id: 'tri', name: 'Трин', angle: 120, orb: 6 },
+    { id: 'opp', name: 'Оппозиция', angle: 180, orb: 8 },
+  ];
+
+  function aspects(bodies) {
+    const list = bodies.filter((b) => b.id !== 'node');
+    const out = [];
+    for (let i = 0; i < list.length; i++) {
+      for (let j = i + 1; j < list.length; j++) {
+        let diff = Math.abs(list[i].lon - list[j].lon);
+        if (diff > 180) diff = 360 - diff;
+        for (const a of ASPECTS) {
+          const orb = Math.abs(diff - a.angle);
+          if (orb <= a.orb) { out.push({ a: list[i], b: list[j], type: a, orb }); break; }
+        }
+      }
+    }
+    return out;
+  }
+
+  function moonPhase(date) {
+    const d = dayNumber(date);
+    const sun = sunPos(d);
+    const elong = norm(moonPos(d, sun).lon - sun.lon);
+    const illum = (1 - cosd(elong)) / 2;
+    const names = ['Новолуние', 'Растущий серп', 'Первая четверть', 'Растущая Луна', 'Полнолуние', 'Убывающая Луна', 'Последняя четверть', 'Убывающий серп'];
+    const glyphs = ['🌑', '🌒', '🌓', '🌔', '🌕', '🌖', '🌗', '🌘'];
+    const k = Math.floor(((elong + 22.5) % 360) / 45);
+    return { elong, illum, name: names[k], glyph: glyphs[k] };
+  }
+
+  const fmtDeg = (b) => `${b.deg}°${String(b.min).padStart(2, '0')}′`;
+
+  return { positions, aspects, moonPhase, SIGNS, BODIES, ASPECTS, fmtDeg, dayNumber };
+});
+</script>
+  <script>
+/* Построение SVG-колеса: чистая функция (bodies, aspects) → строка SVG. */
+(function (root, factory) {
+  if (typeof module === 'object' && module.exports) module.exports = factory();
+  else root.Wheel = factory();
+})(typeof self !== 'undefined' ? self : this, function () {
+  'use strict';
+
+  const C = 200;                       // центр
+  const R_OUT = 192, R_SIGN = 158, R_PLANET = 134, R_ASPECT = 104;
+  const TEXT = '︎';               // принудительно текстовый (не emoji) глиф
+
+  // Овен слева, долгота растёт против часовой стрелки
+  const pt = (lon, r) => {
+    const a = (lon * Math.PI) / 180;
+    return [C - r * Math.cos(a), C + r * Math.sin(a)];
+  };
+  const f = (n) => n.toFixed(1);
+
+  // разводим глифы, чтобы не налезали друг на друга
+  function spread(bodies, minSep) {
+    const items = bodies.map((b) => ({ b, lon: b.lon })).sort((x, y) => x.lon - y.lon);
+    const n = items.length;
+    for (let it = 0; it < 80; it++) {
+      let moved = false;
+      for (let i = 0; i < n; i++) {
+        const a = items[i], b = items[(i + 1) % n];
+        let gap = b.lon - a.lon;
+        if (i === n - 1) gap += 360;
+        if (gap < minSep) {
+          const push = (minSep - gap) / 2 + 0.01;
+          a.lon -= push; b.lon += push; moved = true;
+        }
+      }
+      if (!moved) break;
+    }
+    const map = new Map();
+    items.forEach((x) => map.set(x.b.id, ((x.lon % 360) + 360) % 360));
+    return map;
+  }
+
+  function build(bodies, aspects) {
+    const out = [];
+    out.push(`<svg viewBox="0 0 400 400" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Натальная карта момента">`);
+
+    // кольцо знаков: заливка секторов по стихиям
+    const elClass = { fire: 'el-fire', earth: 'el-earth', air: 'el-air', water: 'el-water' };
+    const signs = [
+      ['♈', 'fire'], ['♉', 'earth'], ['♊', 'air'], ['♋', 'water'], ['♌', 'fire'], ['♍', 'earth'],
+      ['♎', 'air'], ['♏', 'water'], ['♐', 'fire'], ['♑', 'earth'], ['♒', 'air'], ['♓', 'water'],
+    ];
+    signs.forEach(([g, el], i) => {
+      const a0 = i * 30, a1 = a0 + 30;
+      const [x0, y0] = pt(a0, R_OUT), [x1, y1] = pt(a1, R_OUT);
+      const [x2, y2] = pt(a1, R_SIGN), [x3, y3] = pt(a0, R_SIGN);
+      // внешняя дуга идёт против часовой на экране → sweep-flag 0, обратная внутренняя → 1
+      out.push(`<path class="sector ${elClass[el]}" d="M${f(x0)} ${f(y0)} A${R_OUT} ${R_OUT} 0 0 0 ${f(x1)} ${f(y1)} L${f(x2)} ${f(y2)} A${R_SIGN} ${R_SIGN} 0 0 1 ${f(x3)} ${f(y3)} Z"/>`);
+      const [gx, gy] = pt(a0 + 15, (R_OUT + R_SIGN) / 2);
+      out.push(`<text class="sign ${elClass[el]}-t" x="${f(gx)}" y="${f(gy)}" text-anchor="middle" dominant-baseline="central">${g}${TEXT}</text>`);
+    });
+
+    out.push(`<circle class="ring" cx="${C}" cy="${C}" r="${R_OUT}"/>`);
+    out.push(`<circle class="ring" cx="${C}" cy="${C}" r="${R_SIGN}"/>`);
+    out.push(`<circle class="ring faint" cx="${C}" cy="${C}" r="${R_ASPECT}"/>`);
+
+    // границы знаков и деления
+    for (let i = 0; i < 12; i++) {
+      const [x1, y1] = pt(i * 30, R_OUT), [x2, y2] = pt(i * 30, R_SIGN);
+      out.push(`<line class="ring" x1="${f(x1)}" y1="${f(y1)}" x2="${f(x2)}" y2="${f(y2)}"/>`);
+    }
+    for (let d = 0; d < 360; d += 5) {
+      if (d % 30 === 0) continue;
+      const len = d % 10 === 0 ? 7 : 4;
+      const [x1, y1] = pt(d, R_SIGN), [x2, y2] = pt(d, R_SIGN - len);
+      out.push(`<line class="tick" x1="${f(x1)}" y1="${f(y1)}" x2="${f(x2)}" y2="${f(y2)}"/>`);
+    }
+
+    // аспекты
+    aspects.forEach((a) => {
+      const [x1, y1] = pt(a.a.lon, R_ASPECT), [x2, y2] = pt(a.b.lon, R_ASPECT);
+      const tight = 1 - Math.min(a.orb / a.type.orb, 1) * 0.6;
+      out.push(`<line class="asp asp-${a.type.id}" style="opacity:${tight.toFixed(2)}" x1="${f(x1)}" y1="${f(y1)}" x2="${f(x2)}" y2="${f(y2)}"/>`);
+    });
+
+    // планеты
+    const disp = spread(bodies, 9.5);
+    bodies.forEach((b) => {
+      const [tx1, ty1] = pt(b.lon, R_SIGN), [tx2, ty2] = pt(b.lon, R_SIGN - 11);
+      out.push(`<line class="pmark" x1="${f(tx1)}" y1="${f(ty1)}" x2="${f(tx2)}" y2="${f(ty2)}"/>`);
+      const dl = disp.get(b.id);
+      const [px, py] = pt(dl, R_PLANET);
+      if (Math.abs(dl - b.lon) > 0.5) {
+        const [lx, ly] = pt(dl, R_PLANET + 13);
+        out.push(`<line class="lead" x1="${f(tx2)}" y1="${f(ty2)}" x2="${f(lx)}" y2="${f(ly)}"/>`);
+      }
+      out.push(`<text class="planet p-${b.id}" x="${f(px)}" y="${f(py)}" text-anchor="middle" dominant-baseline="central">${b.glyph}${TEXT}</text>`);
+      if (b.retro && b.id !== 'node') {
+        const [rx, ry] = pt(dl, R_PLANET - 15);
+        out.push(`<text class="retro" x="${f(rx)}" y="${f(ry)}" text-anchor="middle" dominant-baseline="central">℞</text>`);
+      }
+    });
+
+    out.push('</svg>');
+    return out.join('\n');
+  }
+
+  return { build };
+});
+</script>
+  <script>
+(function () {
+  'use strict';
+
+  // --- Telegram ---------------------------------------------------------
+  const tg = window.Telegram && window.Telegram.WebApp;
+  if (tg) {
+    try { tg.ready(); tg.expand(); } catch (e) { /* вне Telegram — просто браузер */ }
+  }
+
+  // --- Состояние --------------------------------------------------------
+  const DAY = 86400000;
+  const $ = (id) => document.getElementById(id);
+  const state = { spanDays: 366, live: true, when: new Date() };
+
+  const fmtWhen = new Intl.DateTimeFormat('ru-RU', {
+    day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit',
+  });
+
+  function offsetText(ms) {
+    if (state.live) return 'сейчас';
+    const sign = ms > 0 ? '+' : '−';
+    let a = Math.abs(ms) / DAY;
+    if (a < 1) return `${sign}${Math.round(a * 24)} ч`;
+    if (a < 60) return `${sign}${a.toFixed(a < 10 ? 1 : 0)} дн`;
+    if (a < 730) return `${sign}${Math.round(a / 30.44)} мес`;
+    return `${sign}${(a / 365.25).toFixed(1)} лет`;
+  }
+
+  // --- Отрисовка --------------------------------------------------------
+  function render() {
+    const bodies = Ephemeris.positions(state.when);
+    const asp = Ephemeris.aspects(bodies);
+    $('wheel').innerHTML = Wheel.build(bodies, asp);
+    $('when').textContent = fmtWhen.format(state.when);
+    const m = Ephemeris.moonPhase(state.when);
+    $('moon').textContent = `${m.glyph} ${m.name}, ${Math.round(m.illum * 100)}%`;
+    $('offset').textContent = offsetText(state.when - Date.now());
+
+    $('list').innerHTML = bodies.map((b) =>
+      `<li><span class="g">${b.glyph}︎</span><span class="n">${b.name}</span>` +
+      `<span class="v">${Ephemeris.fmtDeg(b)} ${b.sign.glyph}︎` +
+      `${b.retro && b.id !== 'node' ? '<span class="rx">℞</span>' : ''}</span></li>`
+    ).join('');
+  }
+
+  // --- Управление -------------------------------------------------------
+  function setFromSlider() {
+    const v = Number($('slider').value);
+    const centered = v === 500;
+    state.live = centered;
+    state.when = new Date(Date.now() + ((v - 500) / 500) * state.spanDays * DAY);
+    render();
+  }
+
+  $('slider').addEventListener('input', setFromSlider);
+
+  $('range').addEventListener('click', (e) => {
+    const btn = e.target.closest('button');
+    if (!btn) return;
+    state.spanDays = Number(btn.dataset.days);
+    document.querySelectorAll('#range button').forEach((b) => b.setAttribute('aria-pressed', String(b === btn)));
+    setFromSlider();
+  });
+
+  $('now').addEventListener('click', () => {
+    $('slider').value = 500;
+    setFromSlider();
+    if (tg && tg.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
+  });
+
+  // «Сейчас» обновляется само, пока ползунок в центре
+  setInterval(() => {
+    if (state.live) { state.when = new Date(); render(); }
+  }, 30000);
+
+  render();
+})();
+</script>
+</body>
+</html>
