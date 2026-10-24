@@ -134,6 +134,10 @@ h2 { font-size: 13px; font-weight: 600; color: var(--muted); margin: 18px 2px 0;
 .ap { font-size: 11px; border-radius: 9px; padding: 1px 7px; border: 1px solid var(--line); color: var(--muted); }
 .ap.in { color: var(--earth); border-color: var(--earth); }
 .btn.more { display: block; margin: 12px auto 0; }
+.seg.pt { background: var(--card); border-radius: 12px; padding: 4px; margin-top: 8px; }
+.seg.pt button { font-size: 12.5px; padding: 8px 0; }
+#patCap { color: var(--muted); font-size: 12px; margin: 8px 2px 0; }
+#patterns .when { font-size: 12.5px; margin-top: 3px; color: var(--accent); font-variant-numeric: tabular-nums; }
 #patterns { margin: 4px 2px 0; padding: 0; list-style: none; }
 #patterns li { padding: 9px 0; border-bottom: 1px solid var(--line); }
 #patterns .ttl { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; font-weight: 600; font-size: 14.5px; }
@@ -212,6 +216,8 @@ h2 { font-size: 13px; font-weight: 600; color: var(--muted); margin: 18px 2px 0;
   <button class="btn more" id="aMore" type="button" hidden></button>
 
   <h2>Конфигурации</h2>
+  <div class="seg pt" id="patTabs"></div>
+  <div id="patCap"></div>
   <ul id="patterns"></ul>
 
   <p class="note">Положения геоцентрические, тропический зодиак.</p>
@@ -682,7 +688,68 @@ h2 { font-size: 13px; font-weight: 600; color: var(--muted); margin: 18px 2px 0;
     return 12;
   }
 
-  return { positions, aspects, patterns, moonPhase, houses, houseOf, describe, SIGNS, BODIES, ASPECTS, fmtDeg, dayNumber };
+  const patternKey = (p) => p.id + ':' + p.idx.slice().sort((a, b) => a - b).join(',');
+
+  // Конфигурации во времени вокруг момента date (окно ±hours часов):
+  //   current — действуют в момент date, past — были и закончились, future — ещё не начались.
+  // start/end — моменты в мс UTC; null, если конфигурация началась до окна / продлится после него.
+  function patternTimeline(date, opts) {
+    const o = opts || {};
+    const hours = o.hours || 24;
+    const step = (o.stepMin || 20) * 60000;
+    const t0 = date.getTime();
+    const n = Math.round((hours * 3600000) / step);
+    const listAt = (t) => patterns(positions(new Date(t)));
+    const hasAt = (key, t) => listAt(t).some((p) => patternKey(p) === key);
+
+    const times = [], lists = [];
+    for (let k = -n; k <= n; k++) { const t = t0 + k * step; times.push(t); lists.push(listAt(t)); }
+    const keys = new Map();
+    lists.forEach((list) => list.forEach((p) => { const k = patternKey(p); if (!keys.has(k)) keys.set(k, p); }));
+
+    // граница между «нет» и «есть»: loPresent — состояние в точке lo
+    const bisect = (key, lo, hi, loPresent) => {
+      for (let i = 0; i < 9; i++) {
+        const mid = (lo + hi) / 2;
+        if (hasAt(key, mid) === loPresent) lo = mid; else hi = mid;
+      }
+      return loPresent ? lo : hi;
+    };
+
+    const result = { current: [], past: [], future: [] };
+    keys.forEach((pat, key) => {
+      const flags = lists.map((list) => list.some((p) => patternKey(p) === key));
+      const runs = [];
+      for (let i = 0; i < flags.length; i++) {
+        if (!flags[i]) continue;
+        let j = i;
+        while (j + 1 < flags.length && flags[j + 1]) j++;
+        runs.push([i, j]);
+        i = j;
+      }
+      const make = (a, b) => ({
+        pattern: lists[a].find((p) => patternKey(p) === key) || pat,
+        start: a > 0 ? bisect(key, times[a - 1], times[a], false) : null,
+        end: b < flags.length - 1 ? bisect(key, times[b], times[b + 1], true) : null,
+      });
+      let lastPast = null, firstFuture = null;
+      for (const [a, b] of runs) {
+        if (a <= n && b >= n) result.current.push(make(a, b));
+        else if (b < n) lastPast = [a, b];
+        else if (a > n && !firstFuture) firstFuture = [a, b];
+      }
+      if (lastPast) result.past.push(make(lastPast[0], lastPast[1]));
+      if (firstFuture) result.future.push(make(firstFuture[0], firstFuture[1]));
+    });
+
+    const ord = { grandcross: 0, grandtrine: 1, tsquare: 2, yod: 3, stellium: 4 };
+    result.current.sort((x, y) => ord[x.pattern.id] - ord[y.pattern.id]);
+    result.past.sort((x, y) => y.end - x.end);
+    result.future.sort((x, y) => x.start - y.start);
+    return result;
+  }
+
+  return { positions, aspects, patterns, patternTimeline, patternKey, moonPhase, houses, houseOf, describe, SIGNS, BODIES, ASPECTS, fmtDeg, dayNumber };
 });
 </script>
   <script>
@@ -989,23 +1056,82 @@ h2 { font-size: 13px; font-weight: 600; color: var(--muted); margin: 18px 2px 0;
     more.textContent = state.aspAll ? 'Свернуть' : `Показать все (${sorted.length})`;
   }
 
-  function renderPatterns(bodies) {
-    const list = Ephemeris.patterns(bodies);
-    const apex = (p) => `${p.apex.glyph}︎ ${p.apex.name}`;
-    const TEXT = {
-      grandcross: () => ['Большой крест', 'Две оппозиции, образующие квадраты друг с другом'],
-      grandtrine: (p) => ['Большой трин' + (p.element ? ` (${ELEM[p.element]})` : ''), 'Три планеты в трине друг к другу'],
-      tsquare: (p) => ['Т-квадрат', `Оппозиция и вершина в квадратуре к обеим: ${apex(p)}`],
-      yod: (p) => ['Йод', `Секстиль и вершина в квинконсе к обеим: ${apex(p)}`],
-      stellium: (p) => ['Стеллиум', p.sign ? `Планет в знаке ${p.sign.name}: ${p.planets.length}` : `Планет в пределах 10°: ${p.planets.length}`],
-    };
-    $('patterns').innerHTML = list.length
-      ? list.map((p) => {
-        const [title, hint] = TEXT[p.id](p);
-        return `<li><div class="ttl"><span>${title}</span><span class="mem">${p.planets.map((x) => x.glyph + '︎').join(' ')}</span></div><div class="hint">${hint}</div></li>`;
-      }).join('')
-      : '<li class="none">Крупных конфигураций сейчас нет</li>';
+  // --- Конфигурации: текущие / прошедшие / будущие -----------------------
+  const PAT_TABS = [['now', 'Текущие'], ['past', 'Прошедшие'], ['future', 'Будущие']];
+  const PAT_CAPTION = {
+    now: 'Действуют в выбранный момент',
+    past: 'Закончились за 24 часа до выбранного момента',
+    future: 'Начнутся в ближайшие 24 часа',
+  };
+  const PAT_EMPTY = {
+    now: 'Крупных конфигураций сейчас нет',
+    past: 'За последние 24 часа конфигураций не завершалось',
+    future: 'В ближайшие 24 часа новых конфигураций не будет',
+  };
+  const PAT_TEXT = {
+    grandcross: () => ['Большой крест', 'Две оппозиции, образующие квадраты друг с другом'],
+    grandtrine: (p) => ['Большой трин' + (p.element ? ` (${ELEM[p.element]})` : ''), 'Три планеты в трине друг к другу'],
+    tsquare: (p) => ['Т-квадрат', `Оппозиция и вершина в квадратуре к обеим: ${p.apex.glyph}︎ ${p.apex.name}`],
+    yod: (p) => ['Йод', `Секстиль и вершина в квинконсе к обеим: ${p.apex.glyph}︎ ${p.apex.name}`],
+    stellium: (p) => ['Стеллиум', p.sign ? `Планет в знаке ${p.sign.name}: ${p.planets.length}` : `Планет в пределах 10°: ${p.planets.length}`],
+  };
+  state.patTab = 'now';
+  state.patNow = [];
+  let tlCache = null, tlTimer = null;
+
+  const fmtShort = (ms) => new Intl.DateTimeFormat('ru-RU', {
+    timeZone: state.tz, day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit',
+  }).format(new Date(ms));
+
+  function timeLine(kind, e) {
+    const from = e.start == null ? null : fmtShort(e.start);
+    const to = e.end == null ? null : fmtShort(e.end);
+    if (kind === 'now') return `${from ? 'с ' + from : 'началась более 24 ч назад'} · ${to ? 'до ' + to : 'продлится дольше 24 ч'}`;
+    if (kind === 'past') return `${from ? 'с ' + from + ' ' : 'началась раньше, '}до ${to}`;
+    return `с ${from}` + (to ? ` до ${to}` : ' · продлится дольше 24 ч');
   }
+
+  function patternItem(p, line) {
+    const [title, hint] = PAT_TEXT[p.id](p);
+    return `<li><div class="ttl"><span>${title}</span><span class="mem">${p.planets.map((x) => x.glyph + '︎').join(' ')}</span></div>` +
+      `<div class="hint">${hint}</div>${line ? `<div class="when">${line}</div>` : ''}</li>`;
+  }
+
+  function renderPatternUI() {
+    const t = state.when.getTime();
+    const tl = tlCache && tlCache.t === t ? tlCache.data : null;
+    const nowEntries = tl ? tl.current : state.patNow.map((p) => ({ pattern: p }));
+    const counts = { now: nowEntries.length, past: tl ? tl.past.length : null, future: tl ? tl.future.length : null };
+    $('patTabs').innerHTML = PAT_TABS.map(([id, label]) =>
+      `<button type="button" data-tab="${id}" aria-pressed="${state.patTab === id}">${label}${counts[id] === null ? '' : ` (${counts[id]})`}</button>`).join('');
+    $('patCap').textContent = PAT_CAPTION[state.patTab];
+    const entries = state.patTab === 'now' ? nowEntries : (tl ? tl[state.patTab] : null);
+    $('patterns').innerHTML = entries === null
+      ? '<li class="none">Считаю…</li>'
+      : entries.length
+        ? entries.map((e) => patternItem(e.pattern, tl ? timeLine(state.patTab, e) : '')).join('')
+        : `<li class="none">${PAT_EMPTY[state.patTab]}</li>`;
+  }
+
+  // «Текущие» считаем сразу, а прошлое и будущее — с небольшой задержкой, чтобы ползунок не тормозил
+  function renderPatterns(bodies) {
+    state.patNow = Ephemeris.patterns(bodies);
+    const t = state.when.getTime();
+    clearTimeout(tlTimer);
+    renderPatternUI();
+    if (tlCache && tlCache.t === t) return;
+    tlTimer = setTimeout(() => {
+      tlCache = { t, data: Ephemeris.patternTimeline(new Date(t)) };
+      renderPatternUI();
+    }, 150);
+  }
+
+  $('patTabs').addEventListener('click', (e) => {
+    const btn = e.target.closest('button');
+    if (!btn) return;
+    state.patTab = btn.dataset.tab;
+    renderPatternUI();
+  });
 
   function renderAspects(bodies, asp, points) {
     const pts = bodies.filter((b) => b.id !== 'node').concat(points);
