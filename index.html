@@ -43,8 +43,13 @@ text.sign { font-size: 17px; }
 .tick { stroke: var(--line); stroke-width: 1; }
 .pmark { stroke: var(--fg); stroke-width: 1.4; }
 .lead { stroke: var(--muted); stroke-width: .6; }
+text.planet, text.retro, text.hnum { paint-order: stroke; stroke: var(--bg); stroke-width: 3px; stroke-linejoin: round; }
 text.planet { font-size: 19px; fill: var(--fg); }
-text.retro { font-size: 8px; fill: var(--muted); }
+text.retro { font-size: 11px; font-weight: 700; fill: #ff5d8f; font-family: system-ui, sans-serif; }
+text.hnum { font-size: 10px; fill: var(--muted); font-family: system-ui, sans-serif; }
+text.angle { font-size: 9.5px; font-weight: 600; fill: var(--muted); font-family: system-ui, sans-serif; }
+.hline { stroke: var(--line); stroke-width: .8; }
+.hline.angular { stroke: var(--accent); stroke-width: 1.5; opacity: .85; }
 .p-sun { fill: #ffc94d; } .p-moon { fill: #cfd6ea; }
 .asp { stroke-width: 1.2; }
 .asp-conj { stroke: var(--muted); }
@@ -63,13 +68,38 @@ input[type=range] { width: 100%; margin: 4px 0 8px; accent-color: var(--accent);
 #now { border: 1px solid var(--accent); color: var(--accent); background: transparent; border-radius: 9px;
   padding: 6px 14px; font: inherit; font-size: 13px; }
 
-#list { display: grid; grid-template-columns: 1fr 1fr; gap: 2px 14px; margin: 14px 2px 0; padding: 0; list-style: none; }
-#list li { display: flex; align-items: baseline; gap: 6px; padding: 5px 0; border-bottom: 1px solid var(--line);
-  font-size: 13.5px; white-space: nowrap; }
-#list .g { width: 1.3em; text-align: center; font-size: 16px; }
+.place { background: var(--card); border-radius: 14px; padding: 12px 14px; margin-top: 10px; }
+.place .top { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+#placeName { color: var(--muted); font-size: 13px; text-align: right; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.btn { border: 1px solid var(--accent); color: var(--accent); background: transparent; border-radius: 9px;
+  padding: 7px 12px; font: inherit; font-size: 13px; white-space: nowrap; }
+.btn.fill { background: var(--accent); color: var(--accent-fg); }
+.btn:disabled { opacity: .5; }
+#placeForm { display: flex; gap: 8px; margin-top: 10px; }
+#placeInput { flex: 1; min-width: 0; font: inherit; font-size: 14px; color: var(--fg); background: transparent;
+  border: 1px solid var(--line); border-radius: 9px; padding: 7px 10px; }
+#placeInput::placeholder { color: var(--muted); }
+.seg { display: flex; gap: 6px; margin-top: 10px; }
+.seg button { flex: 1; border: 0; border-radius: 9px; padding: 7px 0; font: inherit; font-size: 13px; background: transparent; color: var(--muted); }
+.seg button[aria-pressed="true"] { background: var(--accent); color: var(--accent-fg); }
+#placeMsg { color: var(--muted); font-size: 12px; margin-top: 8px; min-height: 1em; }
+
+#angles { text-align: center; color: var(--muted); font-size: 13px; margin: 2px 0 0; min-height: 1.4em; }
+#list { margin: 14px 2px 0; padding: 0; list-style: none; }
+#list li { display: flex; align-items: center; gap: 8px; padding: 6px 0; border-bottom: 1px solid var(--line);
+  font-size: 14px; white-space: nowrap; }
+#list .g { width: 1.4em; text-align: center; font-size: 17px; }
 #list .n { color: var(--muted); }
 #list .v { margin-left: auto; font-variant-numeric: tabular-nums; }
-#list .rx { color: var(--muted); font-size: 11px; margin-left: 2px; }
+.rx { display: inline-block; font-size: 11px; font-weight: 700; line-height: 1; color: #ff5d8f;
+  border: 1px solid #ff5d8f; border-radius: 5px; padding: 2px 4px; }
+.hp { font-size: 11px; color: var(--muted); border: 1px solid var(--line); border-radius: 9px; padding: 1px 7px; }
+
+h2 { font-size: 13px; font-weight: 600; color: var(--muted); margin: 18px 2px 0; text-transform: uppercase; letter-spacing: .04em; }
+#cusps { display: grid; grid-template-columns: 1fr 1fr; gap: 0 14px; margin: 4px 2px 0; padding: 0; list-style: none; }
+#cusps li { display: flex; gap: 8px; padding: 5px 0; border-bottom: 1px solid var(--line); font-size: 13.5px; }
+#cusps .k { color: var(--muted); width: 1.6em; }
+#cusps .v { margin-left: auto; font-variant-numeric: tabular-nums; }
 .note { color: var(--muted); font-size: 11.5px; margin-top: 14px; text-align: center; }
 </style>
 </head>
@@ -77,6 +107,7 @@ input[type=range] { width: 100%; margin: 4px 0 8px; accent-color: var(--accent);
   <header>
     <div id="when"></div>
     <div id="moon"></div>
+    <div id="angles"></div>
   </header>
 
   <div id="wheel"></div>
@@ -92,8 +123,29 @@ input[type=range] { width: 100%; margin: 4px 0 8px; accent-color: var(--accent);
     <div class="row"><span id="offset"></span><button id="now">Сейчас</button></div>
   </section>
 
+  <section class="place">
+    <div class="top">
+      <button class="btn fill" id="geo" type="button">📍 Моё место</button>
+      <span id="placeName">место не выбрано</span>
+    </div>
+    <form id="placeForm">
+      <input id="placeInput" type="text" placeholder="Город или широта, долгота" enterkeyhint="search" autocomplete="off">
+      <button class="btn" type="submit" id="placeGo">Найти</button>
+    </form>
+    <div class="seg" id="sys">
+      <button type="button" data-sys="placidus" aria-pressed="true">Плацидус</button>
+      <button type="button" data-sys="equal" aria-pressed="false">Равные дома</button>
+    </div>
+    <div id="placeMsg"></div>
+  </section>
+
+  <h2>Планеты</h2>
   <ul id="list"></ul>
-  <p class="note">Положения геоцентрические, тропический зодиак. Дома и Асцендент появятся после выбора места.</p>
+
+  <h2 id="cuspsTitle" hidden>Дома</h2>
+  <ul id="cusps" hidden></ul>
+
+  <p class="note">Положения геоцентрические, тропический зодиак.</p>
 
   <script>
 /*
@@ -319,11 +371,86 @@ input[type=range] { width: 100%; margin: 4px 0 8px; accent-color: var(--accent);
 
   const fmtDeg = (b) => `${b.deg}°${String(b.min).padStart(2, '0')}′`;
 
-  return { positions, aspects, moonPhase, SIGNS, BODIES, ASPECTS, fmtDeg, dayNumber };
+  // долгота → {знак, градусы, минуты} (для куспидов и углов)
+  function describe(lon) {
+    const signIndex = Math.floor(lon / 30), inSign = lon - signIndex * 30;
+    return { lon, signIndex, sign: SIGNS[signIndex], deg: Math.floor(inSign), min: Math.floor((inSign % 1) * 60) };
+  }
+
+  // ---- Дома -------------------------------------------------------------
+  // lat — широта (север +), lon — долгота (восток +), в градусах.
+  function sidereal(date, lon) {
+    const jd = date.getTime() / 86400000 + 2440587.5;
+    const T = (jd - 2451545.0) / 36525;
+    const gmst = 280.46061837 + 360.98564736629 * (jd - 2451545.0) + 0.000387933 * T * T - (T * T * T) / 38710000;
+    return { ramc: norm(gmst + lon), eps: 23.439291 - 0.0130042 * T };
+  }
+
+  const eclLon = (ra, eps) => norm(Math.atan2(sind(ra), cosd(ra) * cosd(eps)) * DEG);
+
+  // куспид Плацидуса итерациями; which: 11, 12, 2, 3. null — если не сходится (полярные широты)
+  function placidusCusp(ramc, eps, lat, which) {
+    const tphi = Math.tan(lat * RAD), se = sind(eps);
+    const k = { 11: 1 / 3, 12: 2 / 3, 2: 2 / 3, 3: 1 / 3 }[which];
+    const upper = which === 11 || which === 12;
+    let R = upper ? ramc + k * 90 : ramc + 180 - k * 90;
+    for (let i = 0; i < 80; i++) {
+      const lam = eclLon(R, eps);
+      const dec = Math.asin(se * sind(lam));
+      const x = -tphi * Math.tan(dec);
+      if (!(Math.abs(x) < 1)) return null;
+      const SAd = Math.acos(x) * DEG, SAn = 180 - SAd;
+      const Rn = upper ? ramc + k * SAd : ramc + 180 - k * SAn;
+      const done = Math.abs(Rn - R) < 1e-9;
+      R = Rn;
+      if (done) break;
+    }
+    return eclLon(R, eps);
+  }
+
+  // system: 'placidus' | 'equal'. Возвращает {asc, mc, cusps[12] (дома 1..12), system, fallback}
+  function houses(date, lat, lon, system) {
+    const { ramc, eps } = sidereal(date, lon);
+    const mc = eclLon(ramc, eps);
+    const asc = norm(Math.atan2(cosd(ramc), -(sind(ramc) * cosd(eps) + Math.tan(lat * RAD) * sind(eps))) * DEG);
+    const ic = norm(mc + 180);
+    let cusps = null, used = system, fallback = false;
+
+    if (system === 'equal') {
+      cusps = Array.from({ length: 12 }, (_, i) => norm(asc + 30 * i));
+    } else {
+      const c11 = placidusCusp(ramc, eps, lat, 11), c12 = placidusCusp(ramc, eps, lat, 12);
+      const c2 = placidusCusp(ramc, eps, lat, 2), c3 = placidusCusp(ramc, eps, lat, 3);
+      if ([c11, c12, c2, c3].every((c) => c !== null)) {
+        cusps = [asc, c2, c3, ic, norm(c11 + 180), norm(c12 + 180), norm(asc + 180), norm(c2 + 180), norm(c3 + 180), mc, c11, c12];
+      } else {
+        // Порфирий: дуги между углами делятся на три части
+        const a1 = norm(asc - mc), a2 = norm(ic - asc);
+        const c11p = norm(mc + a1 / 3), c12p = norm(mc + (2 * a1) / 3);
+        const c2p = norm(asc + a2 / 3), c3p = norm(asc + (2 * a2) / 3);
+        cusps = [asc, c2p, c3p, ic, norm(c11p + 180), norm(c12p + 180), norm(asc + 180), norm(c2p + 180), norm(c3p + 180), mc, c11p, c12p];
+        used = 'porphyry'; fallback = true;
+      }
+    }
+    return { asc, mc, ic, dsc: norm(asc + 180), cusps, system: used, fallback };
+  }
+
+  // номер дома (1..12) для долготы
+  function houseOf(lon, cusps) {
+    for (let i = 0; i < 12; i++) {
+      const a = cusps[i], b = cusps[(i + 1) % 12];
+      const span = norm(b - a), off = norm(lon - a);
+      if (off < span) return i + 1;
+    }
+    return 12;
+  }
+
+  return { positions, aspects, moonPhase, houses, houseOf, describe, SIGNS, BODIES, ASPECTS, fmtDeg, dayNumber };
 });
 </script>
   <script>
-/* Построение SVG-колеса: чистая функция (bodies, aspects) → строка SVG. */
+/* Построение SVG-колеса: чистая функция (bodies, aspects, houses?) → строка SVG.
+ * Без домов Овен слева. С домами колесо повёрнуто так, что Асцендент слева (как в классических картах). */
 (function (root, factory) {
   if (typeof module === 'object' && module.exports) module.exports = factory();
   else root.Wheel = factory();
@@ -331,15 +458,17 @@ input[type=range] { width: 100%; margin: 4px 0 8px; accent-color: var(--accent);
   'use strict';
 
   const C = 200;                       // центр
-  const R_OUT = 192, R_SIGN = 158, R_PLANET = 134, R_ASPECT = 104;
+  const R_OUT = 192, R_SIGN = 158, R_PLANET = 134, R_ASPECT = 104, R_HNUM = 90;
   const TEXT = '︎';               // принудительно текстовый (не emoji) глиф
+  let ROT = 0;                         // долгота, лежащая на левой горизонтали
 
-  // Овен слева, долгота растёт против часовой стрелки
+  // долгота растёт против часовой стрелки; ROT — на 9 часах
   const pt = (lon, r) => {
-    const a = (lon * Math.PI) / 180;
+    const a = ((lon - ROT) * Math.PI) / 180;
     return [C - r * Math.cos(a), C + r * Math.sin(a)];
   };
   const f = (n) => n.toFixed(1);
+  const norm = (x) => ((x % 360) + 360) % 360;
 
   // разводим глифы, чтобы не налезали друг на друга
   function spread(bodies, minSep) {
@@ -359,13 +488,14 @@ input[type=range] { width: 100%; margin: 4px 0 8px; accent-color: var(--accent);
       if (!moved) break;
     }
     const map = new Map();
-    items.forEach((x) => map.set(x.b.id, ((x.lon % 360) + 360) % 360));
+    items.forEach((x) => map.set(x.b.id, norm(x.lon)));
     return map;
   }
 
-  function build(bodies, aspects) {
+  function build(bodies, aspects, H) {
+    ROT = H ? H.asc : 0;
     const out = [];
-    out.push(`<svg viewBox="0 0 400 400" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Натальная карта момента">`);
+    out.push(`<svg viewBox="-16 -16 432 432" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Натальная карта момента">`);
 
     // кольцо знаков: заливка секторов по стихиям
     const elClass = { fire: 'el-fire', earth: 'el-earth', air: 'el-air', water: 'el-water' };
@@ -399,12 +529,36 @@ input[type=range] { width: 100%; margin: 4px 0 8px; accent-color: var(--accent);
       out.push(`<line class="tick" x1="${f(x1)}" y1="${f(y1)}" x2="${f(x2)}" y2="${f(y2)}"/>`);
     }
 
+    // дома: линии куспидов
+    if (H) {
+      H.cusps.forEach((c, i) => {
+        const angular = i % 3 === 0;
+        const [x1, y1] = pt(c, R_ASPECT), [x2, y2] = pt(c, angular ? R_OUT : R_SIGN);
+        out.push(`<line class="hline${angular ? ' angular' : ''}" x1="${f(x1)}" y1="${f(y1)}" x2="${f(x2)}" y2="${f(y2)}"/>`);
+      });
+      // MC/IC отдельно: при равных домах это не куспиды
+      [H.mc, H.ic].forEach((c) => {
+        const [x1, y1] = pt(c, R_ASPECT), [x2, y2] = pt(c, R_OUT);
+        out.push(`<line class="hline angular" x1="${f(x1)}" y1="${f(y1)}" x2="${f(x2)}" y2="${f(y2)}"/>`);
+      });
+    }
+
     // аспекты
     aspects.forEach((a) => {
       const [x1, y1] = pt(a.a.lon, R_ASPECT), [x2, y2] = pt(a.b.lon, R_ASPECT);
       const tight = 1 - Math.min(a.orb / a.type.orb, 1) * 0.6;
       out.push(`<line class="asp asp-${a.type.id}" style="opacity:${tight.toFixed(2)}" x1="${f(x1)}" y1="${f(y1)}" x2="${f(x2)}" y2="${f(y2)}"/>`);
     });
+
+    // номера домов — в центре дома, внутри круга аспектов
+    if (H) {
+      H.cusps.forEach((c, i) => {
+        const next = H.cusps[(i + 1) % 12];
+        const mid = c + norm(next - c) / 2;
+        const [x, y] = pt(mid, R_HNUM);
+        out.push(`<text class="hnum" x="${f(x)}" y="${f(y)}" text-anchor="middle" dominant-baseline="central">${i + 1}</text>`);
+      });
+    }
 
     // планеты
     const disp = spread(bodies, 9.5);
@@ -419,10 +573,18 @@ input[type=range] { width: 100%; margin: 4px 0 8px; accent-color: var(--accent);
       }
       out.push(`<text class="planet p-${b.id}" x="${f(px)}" y="${f(py)}" text-anchor="middle" dominant-baseline="central">${b.glyph}${TEXT}</text>`);
       if (b.retro && b.id !== 'node') {
-        const [rx, ry] = pt(dl, R_PLANET - 15);
-        out.push(`<text class="retro" x="${f(rx)}" y="${f(ry)}" text-anchor="middle" dominant-baseline="central">℞</text>`);
+        const [rx, ry] = pt(dl, R_PLANET - 16);
+        out.push(`<text class="retro" x="${f(rx)}" y="${f(ry)}" text-anchor="middle" dominant-baseline="central">R</text>`);
       }
     });
+
+    // подписи углов
+    if (H) {
+      [['ASC', H.asc], ['DSC', H.dsc], ['MC', H.mc], ['IC', H.ic]].forEach(([t, lon]) => {
+        const [x, y] = pt(lon, R_OUT + 11);
+        out.push(`<text class="angle" x="${f(x)}" y="${f(y)}" text-anchor="middle" dominant-baseline="central">${t}</text>`);
+      });
+    }
 
     out.push('</svg>');
     return out.join('\n');
@@ -441,19 +603,35 @@ input[type=range] { width: 100%; margin: 4px 0 8px; accent-color: var(--accent);
     try { tg.ready(); tg.expand(); } catch (e) { /* вне Telegram — просто браузер */ }
   }
 
+  // --- Хранилище (локально, может быть недоступно) ------------------------
+  const store = {
+    get(k) { try { return JSON.parse(localStorage.getItem(k)); } catch (e) { return null; } },
+    set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* ignore */ } },
+  };
+
   // --- Состояние --------------------------------------------------------
   const DAY = 86400000;
   const $ = (id) => document.getElementById(id);
-  const state = { spanDays: 366, live: true, when: new Date() };
+  const state = { spanDays: 366, live: true, when: new Date(), loc: null, system: 'placidus' };
+
+  const savedLoc = store.get('astro.loc');
+  if (savedLoc && Math.abs(savedLoc.lat) <= 90 && Math.abs(savedLoc.lon) <= 180) state.loc = savedLoc;
+  const savedSys = store.get('astro.sys');
+  if (savedSys === 'equal' || savedSys === 'placidus') state.system = savedSys;
 
   const fmtWhen = new Intl.DateTimeFormat('ru-RU', {
     day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit',
   });
+  const pad = (n) => String(n).padStart(2, '0');
+  const fmtLon = (lon) => {
+    const d = Ephemeris.describe(lon);
+    return `${d.deg}°${pad(d.min)}′ ${d.sign.glyph}︎`;
+  };
 
   function offsetText(ms) {
     if (state.live) return 'сейчас';
     const sign = ms > 0 ? '+' : '−';
-    let a = Math.abs(ms) / DAY;
+    const a = Math.abs(ms) / DAY;
     if (a < 1) return `${sign}${Math.round(a * 24)} ч`;
     if (a < 60) return `${sign}${a.toFixed(a < 10 ? 1 : 0)} дн`;
     if (a < 730) return `${sign}${Math.round(a / 30.44)} мес`;
@@ -464,24 +642,39 @@ input[type=range] { width: 100%; margin: 4px 0 8px; accent-color: var(--accent);
   function render() {
     const bodies = Ephemeris.positions(state.when);
     const asp = Ephemeris.aspects(bodies);
-    $('wheel').innerHTML = Wheel.build(bodies, asp);
+    const L = state.loc;
+    const H = L ? Ephemeris.houses(state.when, L.lat, L.lon, state.system) : null;
+    if (H) bodies.forEach((b) => { b.house = Ephemeris.houseOf(b.lon, H.cusps); });
+
+    $('wheel').innerHTML = Wheel.build(bodies, asp, H);
     $('when').textContent = fmtWhen.format(state.when);
     const m = Ephemeris.moonPhase(state.when);
     $('moon').textContent = `${m.glyph} ${m.name}, ${Math.round(m.illum * 100)}%`;
     $('offset').textContent = offsetText(state.when - Date.now());
 
+    $('angles').textContent = H
+      ? `ASC ${fmtLon(H.asc)} · MC ${fmtLon(H.mc)}` + (H.fallback ? ' · дома по Порфирию (полярная широта)' : '')
+      : 'Укажите место — появятся дома, ASC и MC';
+
     $('list').innerHTML = bodies.map((b) =>
       `<li><span class="g">${b.glyph}︎</span><span class="n">${b.name}</span>` +
-      `<span class="v">${Ephemeris.fmtDeg(b)} ${b.sign.glyph}︎` +
-      `${b.retro && b.id !== 'node' ? '<span class="rx">℞</span>' : ''}</span></li>`
+      (b.retro && b.id !== 'node' ? '<span class="rx" title="Ретроградная">R</span>' : '') +
+      (H ? `<span class="hp">${b.house} дом</span>` : '') +
+      `<span class="v">${Ephemeris.fmtDeg(b)} ${b.sign.glyph}︎</span></li>`
     ).join('');
+
+    const showCusps = !!H;
+    $('cuspsTitle').hidden = !showCusps;
+    $('cusps').hidden = !showCusps;
+    $('cusps').innerHTML = showCusps
+      ? H.cusps.map((c, i) => `<li><span class="k">${i + 1}</span><span class="v">${fmtLon(c)}</span></li>`).join('')
+      : '';
   }
 
-  // --- Управление -------------------------------------------------------
+  // --- Время ------------------------------------------------------------
   function setFromSlider() {
     const v = Number($('slider').value);
-    const centered = v === 500;
-    state.live = centered;
+    state.live = v === 500;
     state.when = new Date(Date.now() + ((v - 500) / 500) * state.spanDays * DAY);
     render();
   }
@@ -507,6 +700,95 @@ input[type=range] { width: 100%; margin: 4px 0 8px; accent-color: var(--accent);
     if (state.live) { state.when = new Date(); render(); }
   }, 30000);
 
+  // --- Место ------------------------------------------------------------
+  const msg = (t) => { $('placeMsg').textContent = t || ''; };
+
+  function setLoc(loc, note) {
+    state.loc = loc;
+    store.set('astro.loc', loc);
+    $('placeName').textContent = loc ? loc.name : 'место не выбрано';
+    msg(note);
+    render();
+  }
+
+  function viaTelegram() {
+    return new Promise((resolve) => {
+      const lm = tg && tg.LocationManager;
+      if (!lm) return resolve(null);
+      const timer = setTimeout(() => resolve(null), 12000);
+      const finish = (v) => { clearTimeout(timer); resolve(v); };
+      try {
+        lm.init(() => {
+          if (!lm.isLocationAvailable) return finish(null);
+          lm.getLocation((d) => {
+            if (!d && lm.isAccessRequested && !lm.isAccessGranted) { try { lm.openSettings(); } catch (e) { /* ignore */ } }
+            finish(d ? { lat: d.latitude, lon: d.longitude } : null);
+          });
+        });
+      } catch (e) { finish(null); }
+    });
+  }
+
+  function viaBrowser() {
+    return new Promise((resolve) => {
+      if (!navigator.geolocation) return resolve(null);
+      navigator.geolocation.getCurrentPosition(
+        (p) => resolve({ lat: p.coords.latitude, lon: p.coords.longitude }),
+        () => resolve(null),
+        { timeout: 10000, maximumAge: 600000 }
+      );
+    });
+  }
+
+  $('geo').addEventListener('click', async () => {
+    $('geo').disabled = true;
+    msg('Определяю место…');
+    let p = await viaTelegram();
+    if (!p) p = await viaBrowser();
+    $('geo').disabled = false;
+    if (p) setLoc({ lat: p.lat, lon: p.lon, name: `Моё место (${p.lat.toFixed(2)}, ${p.lon.toFixed(2)})` });
+    else msg('Не удалось определить место. Разрешите доступ к геолокации или введите город / координаты ниже.');
+  });
+
+  $('placeForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const q = $('placeInput').value.trim();
+    if (!q) return;
+    const m = q.match(/^(-?\d+(?:[.,]\d+)?)\s*[,;\s]\s*(-?\d+(?:[.,]\d+)?)$/);
+    if (m) {
+      const lat = parseFloat(m[1].replace(',', '.')), lon = parseFloat(m[2].replace(',', '.'));
+      if (Math.abs(lat) > 90 || Math.abs(lon) > 180) { msg('Широта от −90 до 90, долгота от −180 до 180.'); return; }
+      setLoc({ lat, lon, name: `${lat.toFixed(2)}, ${lon.toFixed(2)}` });
+      return;
+    }
+    $('placeGo').disabled = true;
+    msg('Ищу…');
+    try {
+      const r = await fetch('https://nominatim.openstreetmap.org/search?format=json&limit=1&accept-language=ru&q=' + encodeURIComponent(q));
+      const j = await r.json();
+      if (!j.length) msg('Место не найдено. Попробуйте иначе или введите координаты: 55.75, 37.62');
+      else setLoc({ lat: parseFloat(j[0].lat), lon: parseFloat(j[0].lon), name: j[0].display_name.split(',')[0] });
+    } catch (err) {
+      msg('Не удалось найти город (нет связи). Введите координаты: 55.75, 37.62');
+    }
+    $('placeGo').disabled = false;
+  });
+
+  $('sys').addEventListener('click', (e) => {
+    const btn = e.target.closest('button');
+    if (!btn) return;
+    state.system = btn.dataset.sys;
+    store.set('astro.sys', state.system);
+    syncSys();
+    render();
+  });
+
+  function syncSys() {
+    document.querySelectorAll('#sys button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.sys === state.system)));
+  }
+
+  $('placeName').textContent = state.loc ? state.loc.name : 'место не выбрано';
+  syncSys();
   render();
 })();
 </script>
