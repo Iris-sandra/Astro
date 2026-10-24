@@ -59,6 +59,15 @@ text.angle { font-size: 9.5px; font-weight: 600; fill: var(--muted); font-family
 .asp-opp { stroke: #ff5d8f; }
 
 .time { background: var(--card); border-radius: 14px; padding: 12px 14px 10px; margin-top: 4px; }
+.dt { display: flex; gap: 8px; margin-bottom: 8px; }
+.dt input, .tzrow input { min-width: 0; font: inherit; color: var(--fg); background: transparent;
+  border: 1px solid var(--line); border-radius: 9px; padding: 8px 10px; }
+.dt input { flex: 1; font-size: 16px; }
+.dt #dateInput { flex: 1.5; }
+.tzrow { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; color: var(--muted); font-size: 12px; }
+.tzrow input { flex: 1; font-size: 13px; padding: 6px 10px; }
+#dtMsg { color: #ff5d8f; font-size: 12px; }
+#dtMsg:not(:empty) { margin-bottom: 8px; }
 .range { display: flex; gap: 6px; margin-bottom: 10px; }
 .range button { flex: 1; border: 0; border-radius: 9px; padding: 7px 0; font: inherit; font-size: 13px;
   background: transparent; color: var(--muted); }
@@ -144,6 +153,16 @@ h2 { font-size: 13px; font-weight: 600; color: var(--muted); margin: 18px 2px 0;
   <div id="wheel"></div>
 
   <section class="time">
+    <div class="dt">
+      <input id="dateInput" type="date" min="1800-01-01" max="2100-12-31" aria-label="Дата">
+      <input id="timeInput" type="time" aria-label="Время">
+    </div>
+    <div class="tzrow">
+      <label for="tzInput">Пояс</label>
+      <input id="tzInput" list="tzList" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Europe/Moscow">
+      <datalist id="tzList"></datalist>
+    </div>
+    <div id="dtMsg"></div>
     <div class="range" id="range">
       <button data-days="1" aria-pressed="false">±1 день</button>
       <button data-days="31" aria-pressed="false">±1 мес</button>
@@ -197,6 +216,84 @@ h2 { font-size: 13px; font-weight: 600; color: var(--muted); margin: 18px 2px 0;
 
   <p class="note">Положения геоцентрические, тропический зодиак.</p>
 
+  <script>
+/* Часовые пояса: местное время (дата + часы) ↔ момент UTC, по названию пояса IANA
+ * (например Europe/Moscow). Использует Intl, поэтому учитывает исторические изменения поясов и летнее время. */
+(function (root, factory) {
+  if (typeof module === 'object' && module.exports) module.exports = factory();
+  else root.Timez = factory();
+})(typeof self !== 'undefined' ? self : this, function () {
+  'use strict';
+
+  const cache = new Map();
+  function formatter(tz) {
+    let f = cache.get(tz);
+    if (!f) {
+      f = new Intl.DateTimeFormat('en-US', {
+        timeZone: tz, hourCycle: 'h23',
+        year: 'numeric', month: 'numeric', day: 'numeric', hour: 'numeric', minute: 'numeric', second: 'numeric',
+      });
+      cache.set(tz, f);
+    }
+    return f;
+  }
+
+  // момент UTC → местные год, месяц, день, часы, минуты, секунды в поясе tz
+  function parts(date, tz) {
+    const o = {};
+    for (const p of formatter(tz).formatToParts(date)) if (p.type !== 'literal') o[p.type] = parseInt(p.value, 10);
+    return { year: o.year, month: o.month, day: o.day, hour: o.hour % 24, minute: o.minute, second: o.second };
+  }
+
+  // смещение пояса от UTC в миллисекундах на момент date
+  function offsetAt(date, tz) {
+    const p = parts(date, tz);
+    const asUtc = Date.UTC(p.year, p.month - 1, p.day, p.hour, p.minute, p.second);
+    return asUtc - Math.floor(date.getTime() / 1000) * 1000;
+  }
+
+  // местное время в поясе tz → Date (момент UTC)
+  function zonedToUtc(year, month, day, hour, minute, tz) {
+    const guess = Date.UTC(year, month - 1, day, hour, minute);
+    const off1 = offsetAt(new Date(guess), tz);
+    let t = guess - off1;
+    const off2 = offsetAt(new Date(t), tz);
+    if (off2 !== off1) t = guess - off2;   // граница перехода на летнее время / смены пояса
+    return new Date(t);
+  }
+
+  function isValidZone(tz) {
+    if (!tz || typeof tz !== 'string') return false;
+    try { formatter(tz); return true; } catch (e) { return false; }
+  }
+
+  function deviceZone() {
+    try {
+      const z = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      if (isValidZone(z)) return z;
+    } catch (e) { /* ignore */ }
+    return 'UTC';
+  }
+
+  function zoneList() {
+    let list = [];
+    try {
+      if (typeof Intl.supportedValuesOf === 'function') list = Intl.supportedValuesOf('timeZone');
+    } catch (e) { /* ignore */ }
+    if (!list.length) {
+      list = ['Europe/Kaliningrad', 'Europe/Moscow', 'Europe/Samara', 'Asia/Yekaterinburg', 'Asia/Omsk', 'Asia/Novosibirsk',
+        'Asia/Krasnoyarsk', 'Asia/Irkutsk', 'Asia/Yakutsk', 'Asia/Vladivostok', 'Asia/Magadan', 'Asia/Kamchatka',
+        'Europe/Kyiv', 'Europe/Minsk', 'Europe/London', 'Europe/Paris', 'Europe/Berlin', 'Asia/Almaty', 'Asia/Tashkent',
+        'Asia/Tbilisi', 'Asia/Yerevan', 'Asia/Baku', 'Asia/Dubai', 'Asia/Kolkata', 'Asia/Shanghai', 'Asia/Tokyo',
+        'America/New_York', 'America/Chicago', 'America/Denver', 'America/Los_Angeles'];
+    }
+    if (!list.includes('UTC')) list = ['UTC'].concat(list);
+    return list;
+  }
+
+  return { parts, offsetAt, zonedToUtc, isValidZone, deviceZone, zoneList };
+});
+</script>
   <script>
 /*
  * Лёгкая эфемерида без зависимостей: Солнце, Луна, планеты, Плутон, средний узел.
@@ -753,11 +850,16 @@ h2 { font-size: 13px; font-weight: 600; color: var(--muted); margin: 18px 2px 0;
   // --- Состояние --------------------------------------------------------
   const DAY = 86400000;
   const $ = (id) => document.getElementById(id);
-  const state = { spanDays: 366, live: true, when: new Date(), loc: null, system: 'placidus', minor: false, orbScale: 1, aspAll: false };
+  const state = { spanDays: 366, live: true, when: new Date(), loc: null, system: 'placidus', minor: false, orbScale: 1, aspAll: false, base: null, tz: Timez.deviceZone() };
   const savedMinor = store.get('astro.minor');
   if (savedMinor === true || savedMinor === false) state.minor = savedMinor;
   const savedOrb = store.get('astro.orb');
   if ([0.6, 1, 1.3].includes(savedOrb)) state.orbScale = savedOrb;
+  const savedTz = store.get('astro.tz');
+  if (Timez.isValidZone(savedTz)) state.tz = savedTz;
+  if (document.documentElement && document.documentElement.style) {
+    document.documentElement.style.colorScheme = (tg && tg.colorScheme) || 'dark'; // чтобы выбор даты был в цвет темы
+  }
 
   // значки аспектов (рисуем сами, чтобы не зависеть от шрифтов телефона)
   const ICON = {
@@ -778,23 +880,29 @@ h2 { font-size: 13px; font-weight: 600; color: var(--muted); margin: 18px 2px 0;
   const savedSys = store.get('astro.sys');
   if (savedSys === 'equal' || savedSys === 'placidus') state.system = savedSys;
 
-  const fmtWhen = new Intl.DateTimeFormat('ru-RU', {
-    day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit',
-  });
+  const fmtWhen = (date) => new Intl.DateTimeFormat('ru-RU', {
+    timeZone: state.tz, day: 'numeric', month: 'long', year: 'numeric',
+    hour: '2-digit', minute: '2-digit', timeZoneName: 'short',
+  }).format(date);
   const pad = (n) => String(n).padStart(2, '0');
   const fmtLon = (lon) => {
     const d = Ephemeris.describe(lon);
     return `${d.deg}°${pad(d.min)}′ ${d.sign.glyph}︎`;
   };
 
-  function offsetText(ms) {
+  // сдвиг ползунка: от «сейчас» или от введённой даты
+  function offsetText() {
     if (state.live) return 'сейчас';
+    const ms = state.when.getTime() - (state.base ? state.base.getTime() : Date.now());
+    if (state.base && Math.abs(ms) < 60000) return 'выбранный момент';
     const sign = ms > 0 ? '+' : '−';
     const a = Math.abs(ms) / DAY;
-    if (a < 1) return `${sign}${Math.round(a * 24)} ч`;
-    if (a < 60) return `${sign}${a.toFixed(a < 10 ? 1 : 0)} дн`;
-    if (a < 730) return `${sign}${Math.round(a / 30.44)} мес`;
-    return `${sign}${(a / 365.25).toFixed(1)} лет`;
+    let t;
+    if (a < 1) t = `${Math.round(a * 24)} ч`;
+    else if (a < 60) t = `${a.toFixed(a < 10 ? 1 : 0)} дн`;
+    else if (a < 730) t = `${Math.round(a / 30.44)} мес`;
+    else t = `${(a / 365.25).toFixed(1)} лет`;
+    return `${sign}${t}` + (state.base ? ' от выбранной даты' : '');
   }
 
   // --- Отрисовка --------------------------------------------------------
@@ -809,10 +917,11 @@ h2 { font-size: 13px; font-weight: 600; color: var(--muted); margin: 18px 2px 0;
     const asp = Ephemeris.aspects(bodies, { minor: state.minor, scale: state.orbScale, points });
 
     $('wheel').innerHTML = Wheel.build(bodies, asp, H);
-    $('when').textContent = fmtWhen.format(state.when);
+    $('when').textContent = fmtWhen(state.when);
     const m = Ephemeris.moonPhase(state.when);
     $('moon').textContent = `${m.glyph} ${m.name}, ${Math.round(m.illum * 100)}%`;
-    $('offset').textContent = offsetText(state.when - Date.now());
+    $('offset').textContent = offsetText();
+    syncInputs();
 
     $('angles').textContent = H
       ? `ASC ${fmtLon(H.asc)} · MC ${fmtLon(H.mc)}` + (H.fallback ? ' · дома по Порфирию (полярная широта)' : '')
@@ -933,8 +1042,9 @@ h2 { font-size: 13px; font-weight: 600; color: var(--muted); margin: 18px 2px 0;
   // --- Время ------------------------------------------------------------
   function setFromSlider() {
     const v = Number($('slider').value);
-    state.live = v === 500;
-    state.when = new Date(Date.now() + ((v - 500) / 500) * state.spanDays * DAY);
+    const anchor = state.base ? state.base.getTime() : Date.now();
+    state.live = !state.base && v === 500;
+    state.when = new Date(anchor + ((v - 500) / 500) * state.spanDays * DAY);
     render();
   }
 
@@ -949,6 +1059,8 @@ h2 { font-size: 13px; font-weight: 600; color: var(--muted); margin: 18px 2px 0;
   });
 
   $('now').addEventListener('click', () => {
+    state.base = null;
+    dtMsg('');
     $('slider').value = 500;
     setFromSlider();
     if (tg && tg.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
@@ -958,6 +1070,55 @@ h2 { font-size: 13px; font-weight: 600; color: var(--muted); margin: 18px 2px 0;
   setInterval(() => {
     if (state.live) { state.when = new Date(); render(); }
   }, 30000);
+
+  // --- Дата, время, часовой пояс ----------------------------------------
+  function dtMsg(t) { $('dtMsg').textContent = t || ''; }
+
+  // поля всегда показывают момент, который сейчас на колесе (в выбранном поясе)
+  function syncInputs() {
+    const ae = typeof document !== 'undefined' ? document.activeElement : null;
+    if (ae && (ae.id === 'dateInput' || ae.id === 'timeInput' || ae.id === 'tzInput')) return; // не мешаем вводу
+    const p = Timez.parts(state.when, state.tz);
+    $('dateInput').value = `${String(p.year).padStart(4, '0')}-${pad(p.month)}-${pad(p.day)}`;
+    $('timeInput').value = `${pad(p.hour)}:${pad(p.minute)}`;
+    $('tzInput').value = state.tz;
+  }
+
+  function applyInputs() {
+    const d = $('dateInput').value, t = $('timeInput').value;
+    if (!d || !t) { dtMsg('Введите дату и время.'); return; }
+    const [y, mo, da] = d.split('-').map(Number);
+    const [h, mi] = t.split(':').map(Number);
+    if (!(y >= 1800 && y <= 2100)) { dtMsg('Расчёт работает для 1800–2100 годов.'); return; }
+    const date = Timez.zonedToUtc(y, mo, da, h, mi, state.tz);
+    if (isNaN(date.getTime())) { dtMsg('Не удалось разобрать дату.'); return; }
+    dtMsg('');
+    state.base = date;          // ползунок теперь двигается вокруг этого момента
+    state.live = false;
+    state.when = date;
+    $('slider').value = 500;
+    render();
+  }
+
+  $('dateInput').addEventListener('change', applyInputs);
+  $('timeInput').addEventListener('change', applyInputs);
+
+  $('tzInput').addEventListener('change', () => {
+    const v = $('tzInput').value.trim();
+    if (!Timez.isValidZone(v)) {
+      dtMsg('Неизвестный пояс. Выберите из списка, например Europe/Moscow.');
+      $('tzInput').value = state.tz;
+      return;
+    }
+    dtMsg('');
+    const wasLive = state.live;
+    state.tz = v;
+    store.set('astro.tz', v);
+    // введённое «настенное» время сохраняем, меняется только пояс → сдвигается момент
+    if (wasLive) render(); else applyInputs();
+  });
+
+  $('tzList').innerHTML = Timez.zoneList().map((z) => `<option value="${z}"></option>`).join('');
 
   // --- Место ------------------------------------------------------------
   const msg = (t) => { $('placeMsg').textContent = t || ''; };
